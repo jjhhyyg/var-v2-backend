@@ -1,0 +1,39 @@
+# Maven构建目录
+target/
+!target/*.jar
+
+# IDE配置
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# 日志文件
+*.log
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~
+
+# Maven Wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# 文档
+*.md
+HELP.md
+README.md
+
+# 测试相关
+src/test/
