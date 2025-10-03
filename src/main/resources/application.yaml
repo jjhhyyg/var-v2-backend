@@ -1,160 +1,169 @@
 spring:
-  application:
-    name: var-analysis-backend
+    application:
+        name: var-analysis-backend
 
-  # 数据源配置
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:var_analysis}
-    username: ${DB_USER:var_user}
-    password: ${DB_PASSWORD:var_password}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+    # 数据源配置
+    datasource:
+        url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:var_analysis}
+        username: ${DB_USER:var_user}
+        password: ${DB_PASSWORD:var_password}
+        driver-class-name: org.postgresql.Driver
+        hikari:
+            maximum-pool-size: 10
+            minimum-idle: 5
+            connection-timeout: 30000
+            idle-timeout: 600000
+            max-lifetime: 1800000
 
-  # JPA配置
-  jpa:
-    database: POSTGRESQL
-    show-sql: ${SHOW_SQL:false}
-    hibernate:
-      ddl-auto: validate # 使用Flyway管理数据库，不允许JPA自动创建表
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-        jdbc:
-          batch_size: 20
-        order_inserts: true
-        order_updates: true
+    # JPA配置
+    jpa:
+        database: POSTGRESQL
+        show-sql: ${SHOW_SQL:false}
+        hibernate:
+            ddl-auto: validate # 使用Flyway管理数据库，不允许JPA自动创建表
+        properties:
+            hibernate:
+                dialect: org.hibernate.dialect.PostgreSQLDialect
+                format_sql: true
+                jdbc:
+                    batch_size: 20
+                order_inserts: true
+                order_updates: true
 
-  # Flyway数据库迁移配置
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-    locations: classpath:db/migration
-    validate-on-migrate: true
-
-  # Redis配置
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:var_redis_password}
-      database: ${REDIS_DB:0}
-      timeout: 3000ms
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 2
-          max-wait: -1ms
-
-  # RabbitMQ配置
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:var_user}
-    password: ${RABBITMQ_PASSWORD:var_password}
-    virtual-host: ${RABBITMQ_VHOST:/}
-    listener:
-      simple:
-        acknowledge-mode: manual # 手动ACK
-        prefetch: 1
-        retry:
-          enabled: true
-          initial-interval: 3000ms
-          max-attempts: 3
-          multiplier: 2
-    template:
-      mandatory: true
-      retry:
+    # Flyway数据库迁移配置
+    flyway:
         enabled: true
-        initial-interval: 1000ms
-        max-attempts: 3
+        baseline-on-migrate: true
+        locations: classpath:db/migration
+        validate-on-migrate: true
 
-  # 文件上传配置
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 2GB # 最大单文件大小
-      max-request-size: 2GB # 最大请求大小
-      file-size-threshold: 10MB # 超过此大小写入磁盘
+    # Redis配置
+    data:
+        redis:
+            host: ${REDIS_HOST:localhost}
+            port: ${REDIS_PORT:6379}
+            password: ${REDIS_PASSWORD:var_redis_password}
+            database: ${REDIS_DB:0}
+            timeout: 3000ms
+            lettuce:
+                pool:
+                    max-active: 8
+                    max-idle: 8
+                    min-idle: 2
+                    max-wait: -1ms
 
-  # Jackson配置
-  jackson:
-    default-property-inclusion: non_null
-    time-zone: GMT+8
-    date-format: yyyy-MM-dd HH:mm:ss
-    serialization:
-      write-dates-as-timestamps: false
+    # RabbitMQ配置
+    rabbitmq:
+        host: ${RABBITMQ_HOST:localhost}
+        port: ${RABBITMQ_PORT:5672}
+        username: ${RABBITMQ_USER:var_user}
+        password: ${RABBITMQ_PASSWORD:var_password}
+        virtual-host: ${RABBITMQ_VHOST:/}
+        listener:
+            simple:
+                acknowledge-mode: manual # 手动ACK
+                prefetch: 1
+                retry:
+                    enabled: true
+                    initial-interval: 3000ms
+                    max-attempts: 3
+                    multiplier: 2
+        template:
+            mandatory: true
+            retry:
+                enabled: true
+                initial-interval: 1000ms
+                max-attempts: 3
+
+    # 文件上传配置
+    servlet:
+        multipart:
+            enabled: true
+            max-file-size: 2GB # 最大单文件大小
+            max-request-size: 2GB # 最大请求大小
+            file-size-threshold: 10MB # 超过此大小写入磁盘
+
+    # Jackson配置
+    jackson:
+        default-property-inclusion: non_null
+        time-zone: GMT+8
+        date-format: yyyy-MM-dd HH:mm:ss
+        serialization:
+            write-dates-as-timestamps: false
 
 # 服务器配置
 server:
-  port: ${SERVER_PORT:8080}
-  tomcat:
-    max-connections: 10000
-    threads:
-      max: 200
-      min-spare: 10
-  compression:
-    enabled: true
-    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+    port: ${SERVER_PORT:8080}
+    tomcat:
+        max-connections: 10000
+        threads:
+            max: 200
+            min-spare: 10
+    compression:
+        enabled: true
+        mime-types: application/json,application/xml,text/html,text/xml,text/plain
 
 # 日志配置
 logging:
-  level:
-    root: INFO
-    ustb.hyy.app: ${LOG_LEVEL:DEBUG}
-    org.springframework.web: ${WEB_LOG_LEVEL:INFO}
-    org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}
-    org.hibernate.type.descriptor.sql.BasicBinder: ${SQL_PARAM_LOG_LEVEL:TRACE}
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    level:
+        root: INFO
+        ustb.hyy.app: ${LOG_LEVEL:DEBUG}
+        org.springframework.web: ${WEB_LOG_LEVEL:INFO}
+        org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}
+        org.hibernate.type.descriptor.sql.BasicBinder: ${SQL_PARAM_LOG_LEVEL:TRACE}
+    pattern:
+        console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+        file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 # 应用自定义配置
 app:
-  # 文件存储配置
-  storage:
-    base-path: ${STORAGE_BASE_PATH:/var/var-analysis/storage}
-    video-path: ${app.storage.base-path}/videos
-    result-path: ${app.storage.base-path}/results
-    temp-path: ${app.storage.base-path}/temp
+    # 文件存储配置
+    storage:
+        base-path: ${STORAGE_BASE_PATH:/var/var-analysis/storage}
+        video-path: ${app.storage.base-path}/videos
+        result-path: ${app.storage.base-path}/results
+        temp-path: ${app.storage.base-path}/temp
 
-  # AI处理模块配置
-  ai-processor:
-    callback-url: ${AI_CALLBACK_URL:http://localhost:8080/api/tasks}
+    # AI处理模块配置
+    ai-processor:
+        # 后端API基础URL，AI处理模块会自动拼接具体的endpoint路径
+        # 例如：http://localhost:8080/api/tasks 会被拼接成 /api/tasks/{taskId}/progress
+        callback-url: ${AI_CALLBACK_URL:http://localhost:8080/api/tasks}
 
-  # RabbitMQ队列配置
-  queue:
-    video-analysis: video_analysis_queue
-    result-callback: result_callback_queue
+    # RabbitMQ队列配置
+    queue:
+        video-analysis: video_analysis_queue
+        result-callback: result_callback_queue
 
-  # 任务配置
-  task:
-    # 默认超时比例（格式：分子:分母，如1:4表示30分钟视频最多处理120分钟）
-    default-timeout-ratio: ${DEFAULT_TIMEOUT_RATIO:1:4}
-    # 默认置信度阈值
-    default-confidence-threshold: ${DEFAULT_CONFIDENCE_THRESHOLD:0.5}
-    # 默认IoU阈值
-    default-iou-threshold: ${DEFAULT_IOU_THRESHOLD:0.45}
+    # 任务配置
+    task:
+        # 默认超时比例（格式：分子:分母，如1:4表示30分钟视频最多处理120分钟）
+        default-timeout-ratio: ${DEFAULT_TIMEOUT_RATIO:1:4}
+        # 默认置信度阈值
+        default-confidence-threshold: ${DEFAULT_CONFIDENCE_THRESHOLD:0.5}
+        # 默认IoU阈值
+        default-iou-threshold: ${DEFAULT_IOU_THRESHOLD:0.45}
 
-  # CORS配置（开发环境）
-  cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
-    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
-    allowed-headers: "*"
-    allow-credentials: true
+    # CORS配置（开发环境）
+    cors:
+        allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+        allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+        allowed-headers: "*"
+        allow-credentials: true
+
+    # 雪花算法配置
+    snowflake:
+        # 数据中心ID（0-31）
+        datacenter-id: ${SNOWFLAKE_DATACENTER_ID:0}
+        # 工作机器ID（0-31）
+        worker-id: ${SNOWFLAKE_WORKER_ID:0}
 
 # Actuator监控配置
 management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: when-authorized
+    endpoints:
+        web:
+            exposure:
+                include: health,info,metrics
+    endpoint:
+        health:
+            show-details: when-authorized
