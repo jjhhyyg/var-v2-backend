@@ -1,7 +1,7 @@
 package ustb.hyy.app.backend.service;
 
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.multipart.MultipartFile;
+
 import ustb.hyy.app.backend.common.response.PageResult;
 import ustb.hyy.app.backend.dto.request.ProgressUpdateRequest;
 import ustb.hyy.app.backend.dto.request.ResultSubmitRequest;
@@ -96,4 +96,12 @@ public interface AnalysisTaskService {
      * @param taskId 任务ID
      */
     void deleteTask(Long taskId);
+
+    /**
+     * 更新任务的结果视频路径
+     *
+     * @param taskId 任务ID
+     * @param resultVideoPath 结果视频路径
+     */
+    void updateResultVideoPath(Long taskId, String resultVideoPath);
 }

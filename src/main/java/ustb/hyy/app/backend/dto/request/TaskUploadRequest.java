@@ -1,8 +1,10 @@
 package ustb.hyy.app.backend.dto.request;
 
-import jakarta.validation.constraints.*;
-import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import lombok.Data;
 
 /**
  * 任务上传请求
@@ -29,18 +31,4 @@ public class TaskUploadRequest {
      */
     @Pattern(regexp = "^\\d+:\\d+$", message = "超时比例格式不正确，应为\"分子:分母\"格式，如\"1:4\"")
     private String timeoutRatio;
-
-    /**
-     * 置信度阈值（0.1~0.9，默认0.5）
-     */
-    @DecimalMin(value = "0.1", message = "置信度阈值不能小于0.1")
-    @DecimalMax(value = "0.9", message = "置信度阈值不能大于0.9")
-    private Double confidenceThreshold;
-
-    /**
-     * IoU阈值（0.3~0.7，默认0.45）
-     */
-    @DecimalMin(value = "0.3", message = "IoU阈值不能小于0.3")
-    @DecimalMax(value = "0.7", message = "IoU阈值不能大于0.7")
-    private Double iouThreshold;
 }

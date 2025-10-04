@@ -1,7 +1,16 @@
 package ustb.hyy.app.backend.domain.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * 任务配置实体
@@ -31,20 +40,6 @@ public class TaskConfig extends BaseEntity {
     @Column(nullable = false, length = 10)
     @Builder.Default
     private String timeoutRatio = "1:4";
-
-    /**
-     * 置信度阈值（0.1-0.9）
-     */
-    @Column(nullable = false)
-    @Builder.Default
-    private Double confidenceThreshold = 0.5;
-
-    /**
-     * IoU阈值（0.3-0.7）
-     */
-    @Column(nullable = false)
-    @Builder.Default
-    private Double iouThreshold = 0.45;
 
     /**
      * 模型版本（如"yolov11n"）

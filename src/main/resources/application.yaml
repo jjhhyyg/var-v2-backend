@@ -119,7 +119,7 @@ logging:
 app:
     # 文件存储配置
     storage:
-        base-path: ${STORAGE_BASE_PATH:/var/var-analysis/storage}
+        base-path: ${STORAGE_BASE_PATH:../storage}
         video-path: ${app.storage.base-path}/videos
         result-path: ${app.storage.base-path}/results
         temp-path: ${app.storage.base-path}/temp
@@ -139,10 +139,6 @@ app:
     task:
         # 默认超时比例（格式：分子:分母，如1:4表示30分钟视频最多处理120分钟）
         default-timeout-ratio: ${DEFAULT_TIMEOUT_RATIO:1:4}
-        # 默认置信度阈值
-        default-confidence-threshold: ${DEFAULT_CONFIDENCE_THRESHOLD:0.5}
-        # 默认IoU阈值
-        default-iou-threshold: ${DEFAULT_IOU_THRESHOLD:0.45}
 
     # CORS配置（开发环境）
     cors:

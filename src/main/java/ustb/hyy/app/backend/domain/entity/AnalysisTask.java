@@ -1,10 +1,22 @@
 package ustb.hyy.app.backend.domain.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-import ustb.hyy.app.backend.domain.enums.TaskStatus;
-
 import java.time.LocalDateTime;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import ustb.hyy.app.backend.domain.enums.TaskStatus;
 
 /**
  * 分析任务实体
@@ -35,6 +47,12 @@ public class AnalysisTask extends BaseEntity {
      */
     @Column(nullable = false, length = 500)
     private String videoPath;
+
+    /**
+     * 结果视频文件路径（带标注的视频）
+     */
+    @Column(length = 500)
+    private String resultVideoPath;
 
     /**
      * 视频时长（秒）

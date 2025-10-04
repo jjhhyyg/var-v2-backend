@@ -1,12 +1,12 @@
 package ustb.hyy.app.backend.mq.message;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.io.Serial;
-import java.io.Serializable;
 
 /**
  * 视频分析任务消息
@@ -62,16 +62,6 @@ public class VideoAnalysisMessage implements Serializable {
          * 超时比例
          */
         private String timeoutRatio;
-
-        /**
-         * 置信度阈值
-         */
-        private Double confidenceThreshold;
-
-        /**
-         * IoU阈值
-         */
-        private Double iouThreshold;
 
         /**
          * 模型版本

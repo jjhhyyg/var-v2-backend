@@ -1,16 +1,28 @@
 package ustb.hyy.app.backend.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Map;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import ustb.hyy.app.backend.common.response.PageResult;
 import ustb.hyy.app.backend.common.response.Result;
 import ustb.hyy.app.backend.dto.request.ProgressUpdateRequest;
@@ -149,5 +161,19 @@ public class TaskController {
         log.info("删除任务，taskId: {}", taskId);
         taskService.deleteTask(taskId);
         return Result.success("任务删除成功");
+    }
+
+    /**
+     * 更新结果视频路径（AI模块回调）
+     */
+    @Operation(summary = "更新结果视频路径", description = "AI模块回调接口，更新任务的结果视频路径")
+    @PutMapping("/{taskId:[0-9]+}/result-video")
+    public Result<String> updateResultVideoPath(
+            @Parameter(description = "任务ID") @PathVariable Long taskId,
+            @RequestBody Map<String, String> request) {
+        String resultVideoPath = request.get("resultVideoPath");
+        log.info("更新结果视频路径，taskId: {}, path: {}", taskId, resultVideoPath);
+        taskService.updateResultVideoPath(taskId, resultVideoPath);
+        return Result.success("结果视频路径更新成功");
     }
 }

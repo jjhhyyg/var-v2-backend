@@ -1,13 +1,14 @@
 package ustb.hyy.app.backend.dto.response;
 
+import java.time.LocalDateTime;
+
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 /**
  * 任务响应DTO
@@ -36,6 +37,11 @@ public class TaskResponse {
      * 视频时长（秒）
      */
     private Integer videoDuration;
+
+    /**
+     * 结果视频路径（带标注的视频）
+     */
+    private String resultVideoPath;
 
     /**
      * 任务状态
@@ -95,8 +101,6 @@ public class TaskResponse {
     @AllArgsConstructor
     public static class TaskConfigData {
         private String timeoutRatio;
-        private Double confidenceThreshold;
-        private Double iouThreshold;
         private String modelVersion;
     }
 }

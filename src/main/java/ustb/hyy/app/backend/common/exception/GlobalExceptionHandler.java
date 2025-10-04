@@ -1,6 +1,7 @@
 package ustb.hyy.app.backend.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
@@ -8,7 +9,9 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import ustb.hyy.app.backend.common.response.Result;
 
 import java.util.stream.Collectors;
@@ -93,6 +96,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(Result.badRequest(e.getMessage()));
+    }
+
+    /**
+     * 处理客户端中断连接异常（如视频流传输时用户关闭页面）
+     */
+    @ExceptionHandler({AsyncRequestNotUsableException.class, ClientAbortException.class})
+    public void handleClientAbortException(Exception e) {
+        // 客户端主动断开连接，只记录debug日志，不返回响应
+        log.debug("客户端中断连接: {}", e.getMessage());
+    }
+
+    /**
+     * 处理静态资源未找到异常（如前端 Service Worker 文件）
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public void handleNoResourceFoundException(NoResourceFoundException e) {
+        // 静态资源未找到，只记录debug日志，避免日志污染
+        log.debug("静态资源未找到: {}", e.getMessage());
     }
 
     /**

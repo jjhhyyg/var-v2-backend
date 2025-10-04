@@ -1,21 +1,38 @@
 package ustb.hyy.app.backend.service.impl;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import ustb.hyy.app.backend.cache.TaskProgressCache;
 import ustb.hyy.app.backend.common.exception.BusinessException;
 import ustb.hyy.app.backend.common.exception.ResourceNotFoundException;
 import ustb.hyy.app.backend.common.response.PageResult;
 import ustb.hyy.app.backend.common.util.VideoUtils;
-import ustb.hyy.app.backend.domain.entity.*;
-import ustb.hyy.app.backend.mq.message.VideoAnalysisMessage;
-import ustb.hyy.app.backend.mq.producer.VideoAnalysisProducer;
+import ustb.hyy.app.backend.domain.entity.AnalysisTask;
+import ustb.hyy.app.backend.domain.entity.AnomalyEvent;
+import ustb.hyy.app.backend.domain.entity.DynamicMetric;
+import ustb.hyy.app.backend.domain.entity.TaskConfig;
+import ustb.hyy.app.backend.domain.entity.TrackingObject;
 import ustb.hyy.app.backend.domain.enums.EventType;
 import ustb.hyy.app.backend.domain.enums.ObjectCategory;
 import ustb.hyy.app.backend.domain.enums.TaskStatus;
@@ -25,18 +42,14 @@ import ustb.hyy.app.backend.dto.request.TaskUploadRequest;
 import ustb.hyy.app.backend.dto.response.TaskResponse;
 import ustb.hyy.app.backend.dto.response.TaskResultResponse;
 import ustb.hyy.app.backend.dto.response.TaskStatusResponse;
-import ustb.hyy.app.backend.repository.*;
+import ustb.hyy.app.backend.mq.message.VideoAnalysisMessage;
+import ustb.hyy.app.backend.mq.producer.VideoAnalysisProducer;
+import ustb.hyy.app.backend.repository.AnalysisTaskRepository;
+import ustb.hyy.app.backend.repository.AnomalyEventRepository;
+import ustb.hyy.app.backend.repository.DynamicMetricRepository;
+import ustb.hyy.app.backend.repository.TaskConfigRepository;
+import ustb.hyy.app.backend.repository.TrackingObjectRepository;
 import ustb.hyy.app.backend.service.AnalysisTaskService;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 分析任务Service实现
@@ -56,6 +69,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private final TrackingObjectRepository trackingRepository;
     private final VideoAnalysisProducer analysisProducer;
     private final TaskProgressCache progressCache;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Value("${app.storage.video-path}")
     private String videoStoragePath;
@@ -65,12 +79,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
     @Value("${app.task.default-timeout-ratio}")
     private String defaultTimeoutRatio;
-
-    @Value("${app.task.default-confidence-threshold}")
-    private Double defaultConfidenceThreshold;
-
-    @Value("${app.task.default-iou-threshold}")
-    private Double defaultIouThreshold;
 
     @Override
     @Transactional
@@ -105,8 +113,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         TaskConfig config = TaskConfig.builder()
                 .task(task)
                 .timeoutRatio(timeoutRatio)
-                .confidenceThreshold(Optional.ofNullable(request.getConfidenceThreshold()).orElse(defaultConfidenceThreshold))
-                .iouThreshold(Optional.ofNullable(request.getIouThreshold()).orElse(defaultIouThreshold))
                 .modelVersion("yolov11n")
                 .build();
         configRepository.save(config);
@@ -138,8 +144,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .callbackUrl(aiCallbackUrl)
                 .config(VideoAnalysisMessage.TaskConfigData.builder()
                         .timeoutRatio(config.getTimeoutRatio())
-                        .confidenceThreshold(config.getConfidenceThreshold())
-                        .iouThreshold(config.getIouThreshold())
                         .modelVersion(config.getModelVersion())
                         .build())
                 .build();
@@ -223,6 +227,23 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 设置超时预警
         if (Boolean.TRUE.equals(request.getTimeoutWarning())) {
             progressCache.setTimeoutWarning(taskId);
+        }
+
+        // 通过WebSocket推送任务状态更新
+        try {
+            // 推送到特定任务订阅者
+            messagingTemplate.convertAndSend("/topic/tasks/" + taskId + "/status", statusResponse);
+            // 推送到任务列表订阅者（简化版，只发送taskId和status）
+            Map<String, Object> listUpdate = Map.of(
+                "taskId", taskId,
+                "status", request.getStatus(),
+                "progress", Optional.ofNullable(request.getProgress()).orElse(0.0)
+            );
+            messagingTemplate.convertAndSend("/topic/tasks/updates", listUpdate);
+            log.debug("WebSocket消息已推送，taskId: {}", taskId);
+        } catch (Exception e) {
+            log.error("WebSocket消息推送失败，taskId: {}", taskId, e);
+            // 不影响主流程，仅记录错误
         }
 
         log.info("任务进度已更新并缓存，taskId: {}, status: {}, progress: {}",
@@ -398,6 +419,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 删除视频文件
         try {
             Files.deleteIfExists(Paths.get(task.getVideoPath()));
+            if (task.getResultVideoPath() != null) {
+                Files.deleteIfExists(Paths.get(task.getResultVideoPath()));
+            }
         } catch (IOException e) {
             log.warn("删除视频文件失败: {}", task.getVideoPath(), e);
         }
@@ -405,6 +429,29 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 删除任务（级联删除所有相关数据）
         taskRepository.delete(task);
         log.info("任务已删除，taskId: {}", taskId);
+    }
+
+    @Override
+    @Transactional
+    public void updateResultVideoPath(Long taskId, String resultVideoPath) {
+        AnalysisTask task = findTaskById(taskId);
+        task.setResultVideoPath(resultVideoPath);
+        taskRepository.save(task);
+        log.info("更新任务结果视频路径，taskId: {}, resultVideoPath: {}", taskId, resultVideoPath);
+
+        // 清除Redis中的进度缓存，避免前端一直显示"生成结果视频"进度
+        progressCache.deleteProgress(taskId);
+        log.debug("已清除任务进度缓存，taskId: {}", taskId);
+
+        // 通过WebSocket推送更新，通知前端重新加载任务信息
+        try {
+            TaskConfig config = configRepository.findByTaskId(taskId).orElse(null);
+            TaskResponse response = buildTaskResponse(task, config);
+            messagingTemplate.convertAndSend("/topic/tasks/" + taskId + "/update", response);
+            log.debug("WebSocket消息已推送（结果视频路径更新），taskId: {}", taskId);
+        } catch (Exception e) {
+            log.error("WebSocket消息推送失败（结果视频路径更新），taskId: {}", taskId, e);
+        }
     }
 
     // ==================== 私有辅助方法 ====================
@@ -445,7 +492,15 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             Path filePath = storagePath.resolve(filename);
             Files.copy(video.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            return filePath.toString();
+            // 返回相对于 codes/ 目录的路径
+            // videoStoragePath 配置为 ../storage/videos（相对于 codes/backend）
+            // 需要转换为相对于 codes/ 的路径：storage/videos/xxx.mp4
+            String absolutePath = filePath.toAbsolutePath().normalize().toString();
+            Path codesPath = Paths.get(System.getProperty("user.dir")).getParent(); // codes/backend -> codes
+            String relativePath = codesPath.toAbsolutePath().normalize().relativize(Paths.get(absolutePath)).toString();
+
+            // 统一使用正斜杠（跨平台兼容）
+            return relativePath.replace("\\", "/");
         } catch (IOException e) {
             log.error("视频文件保存失败", e);
             throw new BusinessException("视频文件保存失败", e);
@@ -453,7 +508,10 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     }
 
     private int parseVideoDuration(String videoPath) {
-        return VideoUtils.parseVideoDuration(videoPath);
+        // videoPath 是相对于 codes/ 的路径（如 storage/videos/xxx.mp4）
+        // 需要转换为相对于 codes/backend/ 的路径（如 ../storage/videos/xxx.mp4）
+        String actualPath = "../" + videoPath;
+        return VideoUtils.parseVideoDuration(actualPath);
     }
 
     private int calculateTimeoutThreshold(int videoDuration, String timeoutRatio) {
@@ -476,8 +534,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (config != null) {
             configData = TaskResponse.TaskConfigData.builder()
                     .timeoutRatio(config.getTimeoutRatio())
-                    .confidenceThreshold(config.getConfidenceThreshold())
-                    .iouThreshold(config.getIouThreshold())
                     .modelVersion(config.getModelVersion())
                     .build();
         }
@@ -486,6 +542,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .taskId(String.valueOf(task.getId()))
                 .name(task.getName())
                 .videoDuration(task.getVideoDuration())
+                .resultVideoPath(task.getResultVideoPath())
                 .status(task.getStatus().name())
                 .timeoutThreshold(task.getTimeoutThreshold())
                 .isTimeout(task.getIsTimeout())
