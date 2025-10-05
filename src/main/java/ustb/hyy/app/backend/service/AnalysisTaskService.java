@@ -34,6 +34,14 @@ public interface AnalysisTaskService {
     void startAnalysis(Long taskId);
 
     /**
+     * 重新分析任务
+     * 清除旧的分析结果并重新发送到AI处理队列
+     *
+     * @param taskId 任务ID
+     */
+    void reanalyzeTask(Long taskId);
+
+    /**
      * 获取任务详情
      *
      * @param taskId 任务ID

@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 结果提交请求（AI模块回调）
@@ -30,10 +31,15 @@ public class ResultSubmitRequest {
     private String failureReason;
 
     /**
-     * 动态参数列表
+     * 动态参数列表（每帧的亮度、面积、周长）
      */
     @Valid
     private List<DynamicMetricData> dynamicMetrics;
+
+    /**
+     * 全局频率分析结果（闪烁频率、面积频率、周长频率、圆度等）
+     */
+    private Map<String, Object> globalAnalysis;
 
     /**
      * 异常事件列表
@@ -58,9 +64,9 @@ public class ResultSubmitRequest {
         @NotNull(message = "时间戳不能为空")
         private Double timestamp;
 
-        private Double flickerFrequency;
-        private Integer poolArea;
-        private Double poolPerimeter;
+        private Double brightness;  // 亮度值
+        private Integer poolArea;   // 熔池面积
+        private Double poolPerimeter;  // 熔池周长
     }
 
     /**

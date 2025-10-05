@@ -72,6 +72,17 @@ public class TaskController {
     }
 
     /**
+     * 重新分析任务
+     */
+    @Operation(summary = "重新分析任务", description = "重新分析已完成或失败的任务，将清除旧的分析结果并重新发送到AI处理队列")
+    @PostMapping("/{taskId:[0-9]+}/reanalyze")
+    public Result<String> reanalyzeTask(@Parameter(description = "任务ID") @PathVariable Long taskId) {
+        log.info("重新分析任务，taskId: {}", taskId);
+        taskService.reanalyzeTask(taskId);
+        return Result.success("任务已重新开始分析");
+    }
+
+    /**
      * 查询任务列表
      */
     @Operation(summary = "查询任务列表", description = "分页查询任务列表，支持按状态筛选")

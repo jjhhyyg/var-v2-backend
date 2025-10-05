@@ -42,10 +42,10 @@ public class DynamicMetric extends BaseEntity {
     private BigDecimal timestamp;
 
     /**
-     * 熔池闪烁频率（Hz）
+     * 熔池亮度值（灰度值最高10%像素的平均值）
      */
     @Column(precision = 10, scale = 3)
-    private BigDecimal flickerFrequency;
+    private BigDecimal brightness;
 
     /**
      * 熔池面积（像素）

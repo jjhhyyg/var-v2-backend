@@ -16,9 +16,9 @@ public enum ObjectCategory {
     POOL_NOT_REACHED(0, "熔池未到边"),
 
     /**
-     * 粘连物
+     * 电极粘连物
      */
-    ADHESION(1, "粘连物"),
+    ADHESION(1, "电极粘连物"),
 
     /**
      * 锭冠

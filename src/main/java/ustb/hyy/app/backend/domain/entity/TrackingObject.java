@@ -1,13 +1,20 @@
 package ustb.hyy.app.backend.domain.entity;
 
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
-import jakarta.persistence.*;
-import lombok.*;
 import org.hibernate.annotations.Type;
-import ustb.hyy.app.backend.domain.enums.ObjectCategory;
 
-import java.util.List;
-import java.util.Map;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import ustb.hyy.app.backend.domain.enums.ObjectCategory;
 
 /**
  * 追踪物体实体（ByteTrack追踪结果）
@@ -59,10 +66,20 @@ public class TrackingObject extends BaseEntity {
     private Integer lastFrame;
 
     /**
-     * 轨迹数据（JSON数组，存储每一帧的位置、边界框等信息）
-     * 示例：[{"frame": 100, "bbox": [x, y, w, h], "confidence": 0.85}, ...]
+     * 轨迹数据（JSON数组，存储物体在每帧的位置和置信度）
+     * 格式：[
+     *   {"frame": 100, "bbox": [x1, y1, x2, y2], "confidence": 0.95},
+     *   {"frame": 101, "bbox": [x1, y1, x2, y2], "confidence": 0.92},
+     *   ...
+     * ]
+     * 说明：
+     * - frame: 帧号（物体在该帧出现）
+     * - bbox: 边界框坐标 [x1, y1, x2, y2]（左上角和右下角坐标）
+     * - confidence: 检测置信度（0.0-1.0）
+     * - 数组长度 = 物体实际出现的帧数（非视频总帧数）
+     * - 如果物体间断出现，只记录出现的帧
      */
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
-    private List<Map<String, Object>> trajectory;
+    private Object trajectory;  // 使用 Object 类型以支持灵活的 JSON 格式
 }

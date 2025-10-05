@@ -1,13 +1,14 @@
 package ustb.hyy.app.backend.dto.response;
 
+import java.util.List;
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * 任务结果响应DTO
@@ -43,9 +44,14 @@ public class TaskResultResponse {
     private Boolean isTimeout;
 
     /**
-     * 动态参数列表
+     * 动态参数列表（每帧的亮度、面积、周长）
      */
     private List<DynamicMetricData> dynamicMetrics;
+
+    /**
+     * 全局频率分析结果（闪烁频率、面积频率、周长频率、圆度等）
+     */
+    private Map<String, Object> globalAnalysis;
 
     /**
      * 异常事件列表
@@ -77,9 +83,9 @@ public class TaskResultResponse {
     public static class DynamicMetricData {
         private Integer frameNumber;
         private Double timestamp;
-        private Double flickerFrequency;
-        private Integer poolArea;
-        private Double poolPerimeter;
+        private Double brightness;  // 亮度值
+        private Integer poolArea;   // 熔池面积
+        private Double poolPerimeter;  // 熔池周长
     }
 
     /**
@@ -111,6 +117,6 @@ public class TaskResultResponse {
         private String category;
         private Integer firstFrame;
         private Integer lastFrame;
-        private List<Map<String, Object>> trajectory;
+        private Object trajectory;  // 改为 Object 类型以支持灵活的 JSON 格式
     }
 }

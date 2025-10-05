@@ -1,6 +1,10 @@
 package ustb.hyy.app.backend.domain.entity;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -104,6 +108,14 @@ public class AnalysisTask extends BaseEntity {
      */
     @Column(length = 1000)
     private String failureReason;
+
+    /**
+     * 全局频率分析结果（JSON格式）
+     * 包含闪烁、面积、周长的频率分析和圆度
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> globalAnalysis;
 
     /**
      * 一对一关联任务配置

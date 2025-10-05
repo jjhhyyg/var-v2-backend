@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -153,6 +154,65 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     }
 
     @Override
+    @Transactional
+    public void reanalyzeTask(Long taskId) {
+        AnalysisTask task = findTaskById(taskId);
+
+        // 检查任务状态，只允许重新分析已完成、超时完成或失败的任务
+        if (task.getStatus() != TaskStatus.COMPLETED && 
+            task.getStatus() != TaskStatus.COMPLETED_TIMEOUT && 
+            task.getStatus() != TaskStatus.FAILED) {
+            throw new BusinessException(400, "只能重新分析已完成或失败的任务，当前状态: " + task.getStatus().name());
+        }
+
+        log.info("开始重新分析任务，taskId: {}, 当前状态: {}", taskId, task.getStatus());
+
+        // 1. 清除旧的分析结果
+        log.info("清除任务 {} 的旧分析数据", taskId);
+        
+        // 删除动态参数
+        metricRepository.deleteByTaskId(taskId);
+        
+        // 删除异常事件
+        eventRepository.deleteByTaskId(taskId);
+        
+        // 删除追踪物体
+        trackingRepository.deleteByTaskId(taskId);
+        
+        // 2. 重置任务状态
+        task.setStatus(TaskStatus.PENDING);
+        task.setIsTimeout(false);
+        task.setFailureReason(null);
+        task.setCompletedAt(null);
+        task.setResultVideoPath(null);
+        taskRepository.save(task);
+
+        // 3. 清除Redis缓存的进度信息
+        progressCache.deleteProgress(taskId);
+
+        log.info("任务 {} 状态已重置，旧数据已清除", taskId);
+
+        // 4. 重新发送到MQ队列
+        TaskConfig config = configRepository.findByTaskId(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("任务配置", taskId));
+
+        VideoAnalysisMessage message = VideoAnalysisMessage.builder()
+                .taskId(task.getId())
+                .videoPath(task.getVideoPath())
+                .videoDuration(task.getVideoDuration())
+                .timeoutThreshold(task.getTimeoutThreshold())
+                .callbackUrl(aiCallbackUrl)
+                .config(VideoAnalysisMessage.TaskConfigData.builder()
+                        .timeoutRatio(config.getTimeoutRatio())
+                        .modelVersion(config.getModelVersion())
+                        .build())
+                .build();
+        analysisProducer.sendAnalysisTask(message);
+
+        log.info("任务 {} 已重新发送到分析队列", taskId);
+    }
+
+    @Override
     public TaskResponse getTask(Long taskId) {
         AnalysisTask task = findTaskById(taskId);
         TaskConfig config = configRepository.findByTaskId(taskId).orElse(null);
@@ -191,7 +251,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             task.setStartedAt(LocalDateTime.now());
         } else if (newStatus == TaskStatus.ANALYZING && task.getPreprocessingCompletedAt() == null) {
             task.setPreprocessingCompletedAt(LocalDateTime.now());
-        } else if (newStatus == TaskStatus.COMPLETED || newStatus == TaskStatus.COMPLETED_TIMEOUT) {
+        } else if ((newStatus == TaskStatus.COMPLETED || newStatus == TaskStatus.COMPLETED_TIMEOUT) 
+                && task.getCompletedAt() == null) {
+            // 只在第一次完成时设置完成时间，避免生成结果视频时重复更新
             task.setCompletedAt(LocalDateTime.now());
         }
 
@@ -252,10 +314,11 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
     @Override
     @Transactional
+    @SuppressWarnings("unchecked")
     public void submitResult(Long taskId, ResultSubmitRequest request) {
         AnalysisTask task = findTaskById(taskId);
 
-        // 1. 更新任务状态
+        // 1. 更新任务状态和全局分析结果
         TaskStatus newStatus = TaskStatus.valueOf(request.getStatus());
         task.setStatus(newStatus);
         task.setCompletedAt(LocalDateTime.now());
@@ -263,6 +326,12 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         if (newStatus == TaskStatus.FAILED) {
             task.setFailureReason(request.getFailureReason());
         }
+
+        // 保存全局频率分析结果
+        if (request.getGlobalAnalysis() != null) {
+            task.setGlobalAnalysis(request.getGlobalAnalysis());
+        }
+
         taskRepository.save(task);
 
         // 2. 保存动态参数
@@ -272,8 +341,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                             .taskId(taskId)
                             .frameNumber(data.getFrameNumber())
                             .timestamp(BigDecimal.valueOf(data.getTimestamp()))
-                            .flickerFrequency(data.getFlickerFrequency() != null ?
-                                    BigDecimal.valueOf(data.getFlickerFrequency()) : null)
+                            .brightness(data.getBrightness() != null ?
+                                    BigDecimal.valueOf(data.getBrightness()) : null)
                             .poolArea(data.getPoolArea())
                             .poolPerimeter(data.getPoolPerimeter() != null ?
                                     BigDecimal.valueOf(data.getPoolPerimeter()) : null)
@@ -297,23 +366,83 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             eventRepository.saveAll(events);
         }
 
-        // 4. 保存追踪物体
+        // 4. 保存追踪物体（使用 upsert 逻辑）
         if (request.getTrackingObjects() != null && !request.getTrackingObjects().isEmpty()) {
-            List<TrackingObject> objects = request.getTrackingObjects().stream()
-                    .map(data -> TrackingObject.builder()
+            for (ResultSubmitRequest.TrackingObjectData data : request.getTrackingObjects()) {
+                // 查询是否已存在相同的 objectId
+                Optional<TrackingObject> existingOpt = trackingRepository.findByTaskIdAndObjectId(taskId, data.getObjectId());
+                
+                if (existingOpt.isPresent()) {
+                    // 已存在：更新记录（合并数据）
+                    TrackingObject existing = existingOpt.get();
+                    
+                    // 取最小的 firstFrame 和最大的 lastFrame
+                    existing.setFirstFrame(Math.min(existing.getFirstFrame(), data.getFirstFrame()));
+                    existing.setLastFrame(Math.max(existing.getLastFrame(), data.getLastFrame()));
+                    
+                    // 合并 trajectory（如果新数据有轨迹）
+                    if (data.getTrajectory() != null) {
+                        // trajectory 现在是 List<Map> 格式：[{frame: 100, bbox: [...], confidence: 0.95}, ...]
+                        if (existing.getTrajectory() != null) {
+                            // 现有轨迹存在，需要合并
+                            List<?> existingList = (List<?>) existing.getTrajectory();
+                            List<?> newList = (List<?>) data.getTrajectory();
+                            
+                            List<Object> mergedTrajectory = new ArrayList<>(existingList);
+                            mergedTrajectory.addAll(newList);
+                            existing.setTrajectory(mergedTrajectory);
+                        } else {
+                            // 现有轨迹为空，直接使用新轨迹
+                            existing.setTrajectory(data.getTrajectory());
+                        }
+                    }
+                    
+                    trackingRepository.save(existing);
+                    log.debug("更新追踪物体: taskId={}, objectId={}, firstFrame={}, lastFrame={}", 
+                            taskId, data.getObjectId(), existing.getFirstFrame(), existing.getLastFrame());
+                } else {
+                    // 不存在：创建新记录
+                    TrackingObject newObject = TrackingObject.builder()
                             .taskId(taskId)
                             .objectId(data.getObjectId())
                             .category(ObjectCategory.valueOf(data.getCategory()))
                             .firstFrame(data.getFirstFrame())
                             .lastFrame(data.getLastFrame())
-                            .trajectory(data.getTrajectory() != null ? (List<Map<String, Object>>) data.getTrajectory() : null)
-                            .build())
-                    .collect(Collectors.toList());
-            trackingRepository.saveAll(objects);
+                            .trajectory(data.getTrajectory())
+                            .build();
+                    trackingRepository.save(newObject);
+                    log.debug("创建追踪物体: taskId={}, objectId={}, firstFrame={}, lastFrame={}", 
+                            taskId, data.getObjectId(), data.getFirstFrame(), data.getLastFrame());
+                }
+            }
         }
 
         // 任务完成，清除Redis进度缓存
         progressCache.deleteProgress(taskId);
+
+        // 通过WebSocket推送任务完成状态更新
+        try {
+            // 推送到特定任务订阅者
+            TaskStatusResponse statusResponse = TaskStatusResponse.builder()
+                    .taskId(taskId)
+                    .status(newStatus.name())
+                    .isTimeout(task.getIsTimeout())
+                    .failureReason(task.getFailureReason())
+                    .build();
+            messagingTemplate.convertAndSend("/topic/tasks/" + taskId + "/status", statusResponse);
+            
+            // 推送到任务列表订阅者（简化版，只发送taskId和status）
+            Map<String, Object> listUpdate = Map.of(
+                "taskId", taskId,
+                "status", newStatus.name(),
+                "progress", 1.0
+            );
+            messagingTemplate.convertAndSend("/topic/tasks/updates", listUpdate);
+            log.debug("WebSocket消息已推送（任务完成），taskId: {}, status: {}", taskId, newStatus);
+        } catch (Exception e) {
+            log.error("WebSocket消息推送失败（任务完成），taskId: {}", taskId, e);
+            // 不影响主流程，仅记录错误
+        }
 
         log.info("任务结果已提交，taskId: {}, status: {}", taskId, newStatus);
     }
@@ -333,7 +462,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .map(m -> TaskResultResponse.DynamicMetricData.builder()
                         .frameNumber(m.getFrameNumber())
                         .timestamp(m.getTimestamp() != null ? m.getTimestamp().doubleValue() : null)
-                        .flickerFrequency(m.getFlickerFrequency() != null ? m.getFlickerFrequency().doubleValue() : null)
+                        .brightness(m.getBrightness() != null ? m.getBrightness().doubleValue() : null)
                         .poolArea(m.getPoolArea())
                         .poolPerimeter(m.getPoolPerimeter() != null ? m.getPoolPerimeter().doubleValue() : null)
                         .build())
@@ -379,6 +508,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .status(task.getStatus().name())
                 .isTimeout(task.getIsTimeout())
                 .dynamicMetrics(metricDataList)
+                .globalAnalysis(task.getGlobalAnalysis())
                 .anomalyEvents(eventDataList)
                 .trackingObjects(objectDataList)
                 .eventStatistics(eventStats)
