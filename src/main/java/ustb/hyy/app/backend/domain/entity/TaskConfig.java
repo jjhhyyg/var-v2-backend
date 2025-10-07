@@ -46,5 +46,26 @@ public class TaskConfig extends BaseEntity {
      */
     @Column(length = 50)
     @Builder.Default
-    private String modelVersion = "yolov11n";
+    private String modelVersion = "yolov11m";
+
+    /**
+     * 是否启用视频预处理
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean enablePreprocessing = false;
+
+    /**
+     * 预处理强度（mild, moderate, strong）
+     */
+    @Column(length = 10)
+    @Builder.Default
+    private String preprocessingStrength = "moderate";
+
+    /**
+     * 是否启用熔池特定增强
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean preprocessingEnhancePool = true;
 }

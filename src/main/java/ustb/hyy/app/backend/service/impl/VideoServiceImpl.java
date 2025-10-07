@@ -106,6 +106,11 @@ public class VideoServiceImpl implements VideoService {
             if (path == null || path.isEmpty()) {
                 throw new ResourceNotFoundException("结果视频尚未生成");
             }
+        } else if ("preprocessed".equalsIgnoreCase(type)) {
+            path = task.getPreprocessedVideoPath();
+            if (path == null || path.isEmpty()) {
+                throw new ResourceNotFoundException("预处理视频尚未生成");
+            }
         } else {
             throw new BusinessException("不支持的视频类型：" + type);
         }

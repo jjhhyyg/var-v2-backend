@@ -67,5 +67,20 @@ public class VideoAnalysisMessage implements Serializable {
          * 模型版本
          */
         private String modelVersion;
+
+        /**
+         * 是否启用预处理
+         */
+        private Boolean enablePreprocessing;
+
+        /**
+         * 预处理强度
+         */
+        private String preprocessingStrength;
+
+        /**
+         * 是否启用熔池增强
+         */
+        private Boolean preprocessingEnhancePool;
     }
 }

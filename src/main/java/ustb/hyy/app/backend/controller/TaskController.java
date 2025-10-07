@@ -187,4 +187,18 @@ public class TaskController {
         taskService.updateResultVideoPath(taskId, resultVideoPath);
         return Result.success("结果视频路径更新成功");
     }
+
+    /**
+     * 更新预处理视频路径（AI模块回调）
+     */
+    @Operation(summary = "更新预处理视频路径", description = "AI模块回调接口，更新任务的预处理视频路径")
+    @PutMapping("/{taskId:[0-9]+}/preprocessed-video")
+    public Result<String> updatePreprocessedVideoPath(
+            @Parameter(description = "任务ID") @PathVariable Long taskId,
+            @RequestBody Map<String, String> request) {
+        String preprocessedVideoPath = request.get("preprocessedVideoPath");
+        log.info("更新预处理视频路径，taskId: {}, path: {}", taskId, preprocessedVideoPath);
+        taskService.updatePreprocessedVideoPath(taskId, preprocessedVideoPath);
+        return Result.success("预处理视频路径更新成功");
+    }
 }

@@ -112,4 +112,12 @@ public interface AnalysisTaskService {
      * @param resultVideoPath 结果视频路径
      */
     void updateResultVideoPath(Long taskId, String resultVideoPath);
+
+    /**
+     * 更新任务的预处理视频路径
+     *
+     * @param taskId 任务ID
+     * @param preprocessedVideoPath 预处理视频路径
+     */
+    void updatePreprocessedVideoPath(Long taskId, String preprocessedVideoPath);
 }

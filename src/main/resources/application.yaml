@@ -134,6 +134,7 @@ app:
     queue:
         video-analysis: video_analysis_queue
         result-callback: result_callback_queue
+        task-control: task_control_queue
 
     # 任务配置
     task:

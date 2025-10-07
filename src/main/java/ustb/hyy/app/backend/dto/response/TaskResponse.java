@@ -44,6 +44,11 @@ public class TaskResponse {
     private String resultVideoPath;
 
     /**
+     * 预处理后的视频路径
+     */
+    private String preprocessedVideoPath;
+
+    /**
      * 任务状态
      */
     private String status;
@@ -102,5 +107,8 @@ public class TaskResponse {
     public static class TaskConfigData {
         private String timeoutRatio;
         private String modelVersion;
+        private Boolean enablePreprocessing;
+        private String preprocessingStrength;
+        private Boolean preprocessingEnhancePool;
     }
 }

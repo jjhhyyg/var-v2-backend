@@ -115,6 +115,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .task(task)
                 .timeoutRatio(timeoutRatio)
                 .modelVersion("yolov11n")
+                .enablePreprocessing(Optional.ofNullable(request.getEnablePreprocessing()).orElse(false))
+                .preprocessingStrength(Optional.ofNullable(request.getPreprocessingStrength()).orElse("moderate"))
+                .preprocessingEnhancePool(Optional.ofNullable(request.getPreprocessingEnhancePool()).orElse(true))
                 .build();
         configRepository.save(config);
 
@@ -146,6 +149,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .config(VideoAnalysisMessage.TaskConfigData.builder()
                         .timeoutRatio(config.getTimeoutRatio())
                         .modelVersion(config.getModelVersion())
+                        .enablePreprocessing(config.getEnablePreprocessing())
+                        .preprocessingStrength(config.getPreprocessingStrength())
+                        .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
                         .build())
                 .build();
         analysisProducer.sendAnalysisTask(message);
@@ -179,10 +185,12 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 删除追踪物体
         trackingRepository.deleteByTaskId(taskId);
         
-        // 2. 重置任务状态
+        // 2. 重置任务状态和时间戳
         task.setStatus(TaskStatus.PENDING);
         task.setIsTimeout(false);
         task.setFailureReason(null);
+        task.setStartedAt(null);
+        task.setPreprocessingCompletedAt(null);
         task.setCompletedAt(null);
         task.setResultVideoPath(null);
         taskRepository.save(task);
@@ -205,6 +213,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .config(VideoAnalysisMessage.TaskConfigData.builder()
                         .timeoutRatio(config.getTimeoutRatio())
                         .modelVersion(config.getModelVersion())
+                        .enablePreprocessing(config.getEnablePreprocessing())
+                        .preprocessingStrength(config.getPreprocessingStrength())
+                        .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
                         .build())
                 .build();
         analysisProducer.sendAnalysisTask(message);
@@ -251,7 +262,24 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             task.setStartedAt(LocalDateTime.now());
         } else if (newStatus == TaskStatus.ANALYZING && task.getPreprocessingCompletedAt() == null) {
             task.setPreprocessingCompletedAt(LocalDateTime.now());
-        } else if ((newStatus == TaskStatus.COMPLETED || newStatus == TaskStatus.COMPLETED_TIMEOUT) 
+            
+            // 发送 WebSocket 通知：任务开始分析
+            taskRepository.saveAndFlush(task);
+            messagingTemplate.convertAndSend(
+                "/topic/task/" + taskId + "/status",
+                Map.of(
+                    "status", "ANALYZING",
+                    "phase", "分析中",
+                    "timestamp", System.currentTimeMillis()
+                )
+            );
+            messagingTemplate.convertAndSend("/topic/task/" + taskId, Map.of(
+                "type", "STATUS_CHANGE",
+                "status", "ANALYZING",
+                "message", "任务开始分析"
+            ));
+            log.info("Task {}: Sent WebSocket notification for ANALYZING status", taskId);
+        } else if ((newStatus == TaskStatus.COMPLETED || newStatus == TaskStatus.COMPLETED_TIMEOUT)
                 && task.getCompletedAt() == null) {
             // 只在第一次完成时设置完成时间，避免生成结果视频时重复更新
             task.setCompletedAt(LocalDateTime.now());
@@ -584,6 +612,25 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         }
     }
 
+    @Override
+    @Transactional
+    public void updatePreprocessedVideoPath(Long taskId, String preprocessedVideoPath) {
+        AnalysisTask task = findTaskById(taskId);
+        task.setPreprocessedVideoPath(preprocessedVideoPath);
+        taskRepository.save(task);
+        log.info("更新任务预处理视频路径，taskId: {}, preprocessedVideoPath: {}", taskId, preprocessedVideoPath);
+
+        // 通过WebSocket推送更新，通知前端重新加载任务信息
+        try {
+            TaskConfig config = configRepository.findByTaskId(taskId).orElse(null);
+            TaskResponse response = buildTaskResponse(task, config);
+            messagingTemplate.convertAndSend("/topic/tasks/" + taskId + "/update", response);
+            log.debug("WebSocket消息已推送（预处理视频路径更新），taskId: {}", taskId);
+        } catch (Exception e) {
+            log.error("WebSocket消息推送失败（预处理视频路径更新），taskId: {}", taskId, e);
+        }
+    }
+
     // ==================== 私有辅助方法 ====================
 
     private AnalysisTask findTaskById(Long taskId) {
@@ -618,7 +665,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 Files.createDirectories(storagePath);
             }
 
-            String filename = System.currentTimeMillis() + "_" + video.getOriginalFilename();
+            // 直接使用原始文件名，不添加时间戳
+            String filename = video.getOriginalFilename();
             Path filePath = storagePath.resolve(filename);
             Files.copy(video.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -665,6 +713,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             configData = TaskResponse.TaskConfigData.builder()
                     .timeoutRatio(config.getTimeoutRatio())
                     .modelVersion(config.getModelVersion())
+                    .enablePreprocessing(config.getEnablePreprocessing())
+                    .preprocessingStrength(config.getPreprocessingStrength())
+                    .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
                     .build();
         }
 
@@ -673,6 +724,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .name(task.getName())
                 .videoDuration(task.getVideoDuration())
                 .resultVideoPath(task.getResultVideoPath())
+                .preprocessedVideoPath(task.getPreprocessedVideoPath())
                 .status(task.getStatus().name())
                 .timeoutThreshold(task.getTimeoutThreshold())
                 .isTimeout(task.getIsTimeout())

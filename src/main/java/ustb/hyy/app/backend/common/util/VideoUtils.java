@@ -1,8 +1,9 @@
 package ustb.hyy.app.backend.common.util;
 
-import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
+
+import lombok.extern.slf4j.Slf4j;
 import ustb.hyy.app.backend.common.exception.BusinessException;
 
 /**
@@ -21,9 +22,7 @@ public class VideoUtils {
      * @return 视频时长（秒）
      */
     public static int parseVideoDuration(String videoPath) {
-        FFmpegFrameGrabber grabber = null;
-        try {
-            grabber = new FFmpegFrameGrabber(videoPath);
+        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoPath)) {
             grabber.start();
 
             // 获取视频时长（微秒）
@@ -38,15 +37,6 @@ public class VideoUtils {
         } catch (FrameGrabber.Exception e) {
             log.error("视频时长解析失败: {}", videoPath, e);
             throw new BusinessException("视频文件解析失败，请确认文件格式正确", e);
-        } finally {
-            if (grabber != null) {
-                try {
-                    grabber.stop();
-                    grabber.release();
-                } catch (FrameGrabber.Exception e) {
-                    log.warn("关闭视频文件失败", e);
-                }
-            }
         }
     }
 
@@ -57,9 +47,7 @@ public class VideoUtils {
      * @return 视频信息对象
      */
     public static VideoInfo getVideoInfo(String videoPath) {
-        FFmpegFrameGrabber grabber = null;
-        try {
-            grabber = new FFmpegFrameGrabber(videoPath);
+        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoPath)) {
             grabber.start();
 
             VideoInfo info = new VideoInfo();
@@ -78,15 +66,6 @@ public class VideoUtils {
         } catch (FrameGrabber.Exception e) {
             log.error("获取视频信息失败: {}", videoPath, e);
             throw new BusinessException("视频文件解析失败，请确认文件格式正确", e);
-        } finally {
-            if (grabber != null) {
-                try {
-                    grabber.stop();
-                    grabber.release();
-                } catch (FrameGrabber.Exception e) {
-                    log.warn("关闭视频文件失败", e);
-                }
-            }
         }
     }
 

@@ -48,7 +48,7 @@ public class VideoController {
     @GetMapping("/{taskId:[0-9]+}/{type}")
     public ResponseEntity<ResourceRegion> streamVideo(
             @Parameter(description = "任务ID") @PathVariable Long taskId,
-            @Parameter(description = "视频类型（original/result）") @PathVariable String type,
+            @Parameter(description = "视频类型（original/result/preprocessed）") @PathVariable String type,
             @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader) throws IOException {
 
         log.info("视频流请求 - taskId: {}, type: {}, range: {}", taskId, type, rangeHeader);
@@ -89,7 +89,7 @@ public class VideoController {
     @GetMapping("/{taskId:[0-9]+}/{type}/metadata")
     public ResponseEntity<VideoService.VideoMetadata> getVideoMetadata(
             @Parameter(description = "任务ID") @PathVariable Long taskId,
-            @Parameter(description = "视频类型（original/result）") @PathVariable String type) {
+            @Parameter(description = "视频类型（original/result/preprocessed）") @PathVariable String type) {
 
         log.info("获取视频元数据 - taskId: {}, type: {}", taskId, type);
         VideoService.VideoMetadata metadata = videoService.getVideoMetadata(taskId, type);

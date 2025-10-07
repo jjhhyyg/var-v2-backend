@@ -59,6 +59,12 @@ public class AnalysisTask extends BaseEntity {
     private String resultVideoPath;
 
     /**
+     * 预处理后的视频文件路径
+     */
+    @Column(length = 500)
+    private String preprocessedVideoPath;
+
+    /**
      * 视频时长（秒）
      */
     @Column(nullable = false)
