@@ -119,22 +119,27 @@ logging:
 app:
     # 文件存储配置
     storage:
-        base-path: ${STORAGE_BASE_PATH:../storage}
-        video-path: ${app.storage.base-path}/videos
-        result-path: ${app.storage.base-path}/results
-        temp-path: ${app.storage.base-path}/temp
+        # 存储基础路径（相对于 codes/ 目录）
+        # 开发环境: storage (相对路径会被解析为相对于工作目录)
+        # 生产环境: /var/var-analysis/storage (绝对路径)
+        base-path: ${STORAGE_BASE_PATH:storage}
+        # 子目录配置
+        videos-subdir: ${STORAGE_VIDEOS_SUBDIR:videos}
+        result-videos-subdir: ${STORAGE_RESULT_VIDEOS_SUBDIR:result_videos}
+        preprocessed-videos-subdir: ${STORAGE_PREPROCESSED_VIDEOS_SUBDIR:preprocessed_videos}
+        temp-subdir: ${STORAGE_TEMP_SUBDIR:temp}
 
     # AI处理模块配置
     ai-processor:
-        # 后端API基础URL，AI处理模块会自动拼接具体的endpoint路径
-        # 例如：http://localhost:8080/api/tasks 会被拼接成 /api/tasks/{taskId}/progress
-        callback-url: ${AI_CALLBACK_URL:http://localhost:8080/api/tasks}
+        # 后端API基础URL（AI处理模块会自动拼接具体的endpoint路径）
+        # 示例：http://localhost:8080 会被拼接成 /api/tasks/{taskId}/progress
+        # 注意：这里配置的是后端自己的URL，供AI模块回调使用
+        callback-url: ${BACKEND_BASE_URL:http://localhost:8080}
 
     # RabbitMQ队列配置
     queue:
+        # 视频分析任务队列（Backend → AI模块）
         video-analysis: video_analysis_queue
-        result-callback: result_callback_queue
-        task-control: task_control_queue
 
     # 任务配置
     task:

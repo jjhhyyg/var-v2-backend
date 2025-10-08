@@ -20,24 +20,12 @@ public class RabbitMQConfig {
     @Value("${app.queue.video-analysis}")
     private String videoAnalysisQueue;
 
-    @Value("${app.queue.result-callback}")
-    private String resultCallbackQueue;
-
     /**
      * 视频分析队列
      */
     @Bean
     public Queue videoAnalysisQueue() {
         return QueueBuilder.durable(videoAnalysisQueue)
-                .build();
-    }
-
-    /**
-     * 结果回调队列
-     */
-    @Bean
-    public Queue resultCallbackQueue() {
-        return QueueBuilder.durable(resultCallbackQueue)
                 .build();
     }
 

@@ -72,14 +72,24 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private final TaskProgressCache progressCache;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @Value("${app.storage.video-path}")
-    private String videoStoragePath;
+    @Value("${app.storage.base-path}")
+    private String storageBasePath;
+
+    @Value("${app.storage.videos-subdir}")
+    private String videosSubdir;
 
     @Value("${app.ai-processor.callback-url}")
     private String aiCallbackUrl;
 
     @Value("${app.task.default-timeout-ratio}")
     private String defaultTimeoutRatio;
+    
+    /**
+     * 获取视频存储路径
+     */
+    private String getVideoStoragePath() {
+        return storageBasePath + "/" + videosSubdir;
+    }
 
     @Override
     @Transactional
@@ -660,6 +670,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
     private String saveVideoFile(MultipartFile video) {
         try {
+            String videoStoragePath = getVideoStoragePath();
             Path storagePath = Paths.get(videoStoragePath);
             if (!Files.exists(storagePath)) {
                 Files.createDirectories(storagePath);
@@ -671,11 +682,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             Files.copy(video.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             // 返回相对于 codes/ 目录的路径
-            // videoStoragePath 配置为 ../storage/videos（相对于 codes/backend）
-            // 需要转换为相对于 codes/ 的路径：storage/videos/xxx.mp4
-            String absolutePath = filePath.toAbsolutePath().normalize().toString();
-            Path codesPath = Paths.get(System.getProperty("user.dir")).getParent(); // codes/backend -> codes
-            String relativePath = codesPath.toAbsolutePath().normalize().relativize(Paths.get(absolutePath)).toString();
+            // 使用新的配置方式：storageBasePath = storage, videosSubdir = videos
+            // 直接返回：storage/videos/xxx.mp4
+            String relativePath = storageBasePath + "/" + videosSubdir + "/" + filename;
 
             // 统一使用正斜杠（跨平台兼容）
             return relativePath.replace("\\", "/");
