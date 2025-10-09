@@ -120,4 +120,12 @@ public interface AnalysisTaskService {
      * @param preprocessedVideoPath 预处理视频路径
      */
     void updatePreprocessedVideoPath(Long taskId, String preprocessedVideoPath);
+
+    /**
+     * 更新任务的模型版本
+     *
+     * @param taskId 任务ID
+     * @param modelVersion 模型版本
+     */
+    void updateModelVersion(Long taskId, String modelVersion);
 }

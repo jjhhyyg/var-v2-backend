@@ -201,4 +201,18 @@ public class TaskController {
         taskService.updatePreprocessedVideoPath(taskId, preprocessedVideoPath);
         return Result.success("预处理视频路径更新成功");
     }
+
+    /**
+     * 更新模型版本（AI模块回调）
+     */
+    @Operation(summary = "更新模型版本", description = "AI模块回调接口，更新任务使用的模型版本")
+    @PutMapping("/{taskId:[0-9]+}/model-version")
+    public Result<String> updateModelVersion(
+            @Parameter(description = "任务ID") @PathVariable Long taskId,
+            @RequestBody Map<String, String> request) {
+        String modelVersion = request.get("modelVersion");
+        log.info("更新模型版本，taskId: {}, modelVersion: {}", taskId, modelVersion);
+        taskService.updateModelVersion(taskId, modelVersion);
+        return Result.success("模型版本更新成功");
+    }
 }

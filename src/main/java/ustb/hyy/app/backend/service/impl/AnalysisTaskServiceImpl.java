@@ -642,6 +642,26 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         }
     }
 
+    @Override
+    @Transactional
+    public void updateModelVersion(Long taskId, String modelVersion) {
+        TaskConfig config = configRepository.findByTaskId(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("任务配置", taskId));
+        config.setModelVersion(modelVersion);
+        configRepository.save(config);
+        log.info("更新任务模型版本，taskId: {}, modelVersion: {}", taskId, modelVersion);
+
+        // 通过WebSocket推送更新，通知前端重新加载任务信息
+        try {
+            AnalysisTask task = findTaskById(taskId);
+            TaskResponse response = buildTaskResponse(task, config);
+            messagingTemplate.convertAndSend("/topic/tasks/" + taskId + "/update", response);
+            log.debug("WebSocket消息已推送（模型版本更新），taskId: {}, modelVersion: {}", taskId, modelVersion);
+        } catch (Exception e) {
+            log.error("WebSocket消息推送失败（模型版本更新），taskId: {}", taskId, e);
+        }
+    }
+
     // ==================== 私有辅助方法 ====================
 
     private AnalysisTask findTaskById(Long taskId) {
