@@ -85,10 +85,12 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private String defaultTimeoutRatio;
     
     /**
-     * 获取视频存储路径
+     * 获取视频存储路径（绝对路径）
      */
     private String getVideoStoragePath() {
-        return storageBasePath + "/" + videosSubdir;
+        // 将相对路径转换为基于 codes/ 目录的绝对路径
+        Path codesDir = getCodesDirectory();
+        return codesDir.resolve(storageBasePath).resolve(videosSubdir).toAbsolutePath().toString();
     }
 
     @Override
