@@ -698,8 +698,12 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 Files.createDirectories(storagePath);
             }
 
-            // 直接使用原始文件名,不添加时间戳
-            String filename = video.getOriginalFilename();
+            // 使用时间戳命名文件：如果文件名没有时间戳则添加，如果有则更新
+            String originalFilename = video.getOriginalFilename();
+            String filename = ustb.hyy.app.backend.util.FilenameUtils.addOrUpdateTimestamp(
+                originalFilename, true  // updateExisting=true 表示如果已有时间戳则更新
+            );
+            
             Path filePath = storagePath.resolve(filename);
             Files.copy(video.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -710,7 +714,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             Path relativePath = codesDir.relativize(absolutePath);
             
             String relativePathStr = relativePath.toString().replace("\\", "/");
-            log.info("保存视频成功, 绝对路径: {}, 相对路径: {}", absolutePath, relativePathStr);
+            log.info("保存视频成功, 原始文件名: {}, 保存文件名: {}, 绝对路径: {}, 相对路径: {}", 
+                originalFilename, filename, absolutePath, relativePathStr);
             return relativePathStr;
         } catch (IOException e) {
             log.error("视频文件保存失败", e);
