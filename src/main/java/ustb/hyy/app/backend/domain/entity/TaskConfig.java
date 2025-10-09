@@ -46,7 +46,7 @@ public class TaskConfig extends BaseEntity {
      */
     @Column(length = 50)
     @Builder.Default
-    private String modelVersion = "yolov11m";
+    private String modelVersion = null;
 
     /**
      * 是否启用视频预处理
