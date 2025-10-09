@@ -124,7 +124,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         TaskConfig config = TaskConfig.builder()
                 .task(task)
                 .timeoutRatio(timeoutRatio)
-                .modelVersion("yolov11n")
                 .enablePreprocessing(Optional.ofNullable(request.getEnablePreprocessing()).orElse(false))
                 .preprocessingStrength(Optional.ofNullable(request.getPreprocessingStrength()).orElse("moderate"))
                 .preprocessingEnhancePool(Optional.ofNullable(request.getPreprocessingEnhancePool()).orElse(true))
@@ -586,17 +585,17 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
         // 删除视频文件
         try {
-            Files.deleteIfExists(Paths.get(task.getVideoPath()));
+            Files.deleteIfExists(Paths.get(toAbsolutePath(task.getVideoPath())));
             if (task.getResultVideoPath() != null) {
-                Files.deleteIfExists(Paths.get(task.getResultVideoPath()));
+                Files.deleteIfExists(Paths.get(toAbsolutePath(task.getResultVideoPath())));
             }
         } catch (IOException e) {
             log.warn("删除视频文件失败: {}", task.getVideoPath(), e);
         }
 
-        // 删除任务（级联删除所有相关数据）
+        // 删除任务(级联删除所有相关数据)
         taskRepository.delete(task);
-        log.info("任务已删除，taskId: {}", taskId);
+        log.info("任务已删除,taskId: {}", taskId);
     }
 
     @Override
@@ -671,34 +670,58 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private String saveVideoFile(MultipartFile video) {
         try {
             String videoStoragePath = getVideoStoragePath();
+            
             Path storagePath = Paths.get(videoStoragePath);
             if (!Files.exists(storagePath)) {
                 Files.createDirectories(storagePath);
             }
 
-            // 直接使用原始文件名，不添加时间戳
+            // 直接使用原始文件名,不添加时间戳
             String filename = video.getOriginalFilename();
             Path filePath = storagePath.resolve(filename);
             Files.copy(video.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // 返回相对于 codes/ 目录的路径
-            // 使用新的配置方式：storageBasePath = storage, videosSubdir = videos
-            // 直接返回：storage/videos/xxx.mp4
-            String relativePath = storageBasePath + "/" + videosSubdir + "/" + filename;
-
-            // 统一使用正斜杠（跨平台兼容）
-            return relativePath.replace("\\", "/");
+            // 返回规范化的相对路径 (相对于 codes/ 目录)
+            // 从绝对路径中提取相对路径
+            Path absolutePath = filePath.toAbsolutePath().normalize();
+            Path codesDir = getCodesDirectory();
+            Path relativePath = codesDir.relativize(absolutePath);
+            
+            String relativePathStr = relativePath.toString().replace("\\", "/");
+            log.info("保存视频成功, 绝对路径: {}, 相对路径: {}", absolutePath, relativePathStr);
+            return relativePathStr;
         } catch (IOException e) {
             log.error("视频文件保存失败", e);
             throw new BusinessException("视频文件保存失败", e);
         }
     }
+    
+    /**
+     * 获取 codes/ 目录的绝对路径
+     */
+    private Path getCodesDirectory() {
+        Path currentDir = Paths.get("").toAbsolutePath();
+        if ("backend".equals(currentDir.getFileName().toString())) {
+            return currentDir.getParent();
+        }
+        return currentDir;
+    }
+    
+    /**
+     * 将相对路径转换为绝对路径
+     * @param relativePath 相对于 codes/ 目录的路径
+     * @return 绝对路径
+     */
+    private String toAbsolutePath(String relativePath) {
+        Path codesDir = getCodesDirectory();
+        return codesDir.resolve(relativePath).toAbsolutePath().normalize().toString();
+    }
 
     private int parseVideoDuration(String videoPath) {
-        // videoPath 是相对于 codes/ 的路径（如 storage/videos/xxx.mp4）
-        // 需要转换为相对于 codes/backend/ 的路径（如 ../storage/videos/xxx.mp4）
-        String actualPath = "../" + videoPath;
-        return VideoUtils.parseVideoDuration(actualPath);
+        // videoPath 是相对于 codes/ 的路径,需要转换为绝对路径
+        String absolutePath = toAbsolutePath(videoPath);
+        log.info("解析视频时长: 相对路径={}, 绝对路径={}", videoPath, absolutePath);
+        return VideoUtils.parseVideoDuration(absolutePath);
     }
 
     private int calculateTimeoutThreshold(int videoDuration, String timeoutRatio) {
