@@ -186,7 +186,10 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
         log.info("开始重新分析任务，taskId: {}, 当前状态: {}", taskId, task.getStatus());
 
-        // 1. 清除旧的分析结果
+        // 1. 尝试删除相关的视频文件（预处理视频和结果视频）
+        deleteRelatedVideoFiles(task, false);
+
+        // 2. 清除旧的分析结果
         log.info("清除任务 {} 的旧分析数据", taskId);
         
         // 删除动态参数
@@ -205,6 +208,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         task.setStartedAt(null);
         task.setPreprocessingCompletedAt(null);
         task.setCompletedAt(null);
+        task.setPreprocessedVideoPath(null);
         task.setResultVideoPath(null);
         taskRepository.save(task);
 
@@ -589,15 +593,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     public void deleteTask(Long taskId) {
         AnalysisTask task = findTaskById(taskId);
 
-        // 删除视频文件
-        try {
-            Files.deleteIfExists(Paths.get(toAbsolutePath(task.getVideoPath())));
-            if (task.getResultVideoPath() != null) {
-                Files.deleteIfExists(Paths.get(toAbsolutePath(task.getResultVideoPath())));
-            }
-        } catch (IOException e) {
-            log.warn("删除视频文件失败: {}", task.getVideoPath(), e);
-        }
+        // 尝试删除所有相关的视频文件
+        deleteRelatedVideoFiles(task, true);
 
         // 删除任务(级联删除所有相关数据)
         taskRepository.delete(task);
@@ -767,6 +764,62 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             return videoDuration * denominator / numerator;
         } catch (NumberFormatException e) {
             throw new BusinessException(400, "超时比例格式不正确", e);
+        }
+    }
+
+    /**
+     * 删除任务相关的视频文件
+     * 
+     * @param task 任务对象
+     * @param deleteOriginalVideo 是否删除原始视频（true: 删除任务时删除原始视频，false: 重新分析时不删除原始视频）
+     */
+    private void deleteRelatedVideoFiles(AnalysisTask task, boolean deleteOriginalVideo) {
+        // 删除原始视频（仅在删除任务时）
+        if (deleteOriginalVideo && task.getVideoPath() != null) {
+            try {
+                Path videoPath = Paths.get(toAbsolutePath(task.getVideoPath()));
+                if (Files.deleteIfExists(videoPath)) {
+                    log.info("成功删除原始视频文件，taskId: {}, path: {}", task.getId(), task.getVideoPath());
+                } else {
+                    log.warn("原始视频文件不存在，taskId: {}, path: {}", task.getId(), task.getVideoPath());
+                }
+            } catch (IOException e) {
+                log.error("删除原始视频文件失败，taskId: {}, path: {}", task.getId(), task.getVideoPath(), e);
+            } catch (Exception e) {
+                log.error("删除原始视频文件时发生未知错误，taskId: {}, path: {}", task.getId(), task.getVideoPath(), e);
+            }
+        }
+
+        // 删除预处理视频
+        if (task.getPreprocessedVideoPath() != null) {
+            try {
+                Path preprocessedPath = Paths.get(toAbsolutePath(task.getPreprocessedVideoPath()));
+                if (Files.deleteIfExists(preprocessedPath)) {
+                    log.info("成功删除预处理视频文件，taskId: {}, path: {}", task.getId(), task.getPreprocessedVideoPath());
+                } else {
+                    log.warn("预处理视频文件不存在，taskId: {}, path: {}", task.getId(), task.getPreprocessedVideoPath());
+                }
+            } catch (IOException e) {
+                log.error("删除预处理视频文件失败，taskId: {}, path: {}", task.getId(), task.getPreprocessedVideoPath(), e);
+            } catch (Exception e) {
+                log.error("删除预处理视频文件时发生未知错误，taskId: {}, path: {}", task.getId(), task.getPreprocessedVideoPath(), e);
+            }
+        }
+
+        // 删除结果视频
+        if (task.getResultVideoPath() != null) {
+            try {
+                Path resultPath = Paths.get(toAbsolutePath(task.getResultVideoPath()));
+                if (Files.deleteIfExists(resultPath)) {
+                    log.info("成功删除结果视频文件，taskId: {}, path: {}", task.getId(), task.getResultVideoPath());
+                } else {
+                    log.warn("结果视频文件不存在，taskId: {}, path: {}", task.getId(), task.getResultVideoPath());
+                }
+            } catch (IOException e) {
+                log.error("删除结果视频文件失败，taskId: {}, path: {}", task.getId(), task.getResultVideoPath(), e);
+            } catch (Exception e) {
+                log.error("删除结果视频文件时发生未知错误，taskId: {}, path: {}", task.getId(), task.getResultVideoPath(), e);
+            }
         }
     }
 
