@@ -110,5 +110,7 @@ public class TaskResponse {
         private Boolean enablePreprocessing;
         private String preprocessingStrength;
         private Boolean preprocessingEnhancePool;
+        private Boolean enableTrackingMerge;
+        private String trackingMergeStrategy;
     }
 }

@@ -82,5 +82,15 @@ public class VideoAnalysisMessage implements Serializable {
          * 是否启用熔池增强
          */
         private Boolean preprocessingEnhancePool;
+
+        /**
+         * 是否启用追踪轨迹合并
+         */
+        private Boolean enableTrackingMerge;
+
+        /**
+         * 追踪合并策略
+         */
+        private String trackingMergeStrategy;
     }
 }

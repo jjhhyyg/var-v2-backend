@@ -68,4 +68,18 @@ public class TaskConfig extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean preprocessingEnhancePool = true;
+
+    /**
+     * 是否启用追踪轨迹合并（解决粘连物/锭冠脱落时的ID断裂问题）
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean enableTrackingMerge = true;
+
+    /**
+     * 追踪合并策略（auto, adhesion, ingot_crown, conservative, aggressive）
+     */
+    @Column(length = 20)
+    @Builder.Default
+    private String trackingMergeStrategy = "auto";
 }

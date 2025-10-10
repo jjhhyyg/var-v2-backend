@@ -163,6 +163,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                         .enablePreprocessing(config.getEnablePreprocessing())
                         .preprocessingStrength(config.getPreprocessingStrength())
                         .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
+                        .enableTrackingMerge(config.getEnableTrackingMerge())
+                        .trackingMergeStrategy(config.getTrackingMergeStrategy())
                         .build())
                 .build();
         analysisProducer.sendAnalysisTask(message);
@@ -227,6 +229,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                         .enablePreprocessing(config.getEnablePreprocessing())
                         .preprocessingStrength(config.getPreprocessingStrength())
                         .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
+                        .enableTrackingMerge(config.getEnableTrackingMerge())
+                        .trackingMergeStrategy(config.getTrackingMergeStrategy())
                         .build())
                 .build();
         analysisProducer.sendAnalysisTask(message);
@@ -775,6 +779,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                     .enablePreprocessing(config.getEnablePreprocessing())
                     .preprocessingStrength(config.getPreprocessingStrength())
                     .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
+                    .enableTrackingMerge(config.getEnableTrackingMerge())
+                    .trackingMergeStrategy(config.getTrackingMergeStrategy())
                     .build();
         }
 
