@@ -129,6 +129,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .enablePreprocessing(Optional.ofNullable(request.getEnablePreprocessing()).orElse(false))
                 .preprocessingStrength(Optional.ofNullable(request.getPreprocessingStrength()).orElse("moderate"))
                 .preprocessingEnhancePool(Optional.ofNullable(request.getPreprocessingEnhancePool()).orElse(true))
+                .enableTrackingMerge(Optional.ofNullable(request.getEnableTrackingMerge()).orElse(false))
+                .trackingMergeStrategy(Optional.ofNullable(request.getTrackingMergeStrategy()).orElse("auto"))
                 .build();
         configRepository.save(config);
 

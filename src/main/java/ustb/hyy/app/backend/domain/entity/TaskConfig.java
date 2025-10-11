@@ -74,7 +74,7 @@ public class TaskConfig extends BaseEntity {
      */
     @Column(nullable = false)
     @Builder.Default
-    private Boolean enableTrackingMerge = true;
+    private Boolean enableTrackingMerge = false;
 
     /**
      * 追踪合并策略（auto, adhesion, ingot_crown, conservative, aggressive）

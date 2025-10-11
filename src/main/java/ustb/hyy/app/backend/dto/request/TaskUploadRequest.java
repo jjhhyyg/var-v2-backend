@@ -47,4 +47,15 @@ public class TaskUploadRequest {
      * 是否启用熔池增强（默认true）
      */
     private Boolean preprocessingEnhancePool;
+
+    /**
+     * 是否启用追踪轨迹合并（默认false）
+     */
+    private Boolean enableTrackingMerge;
+
+    /**
+     * 追踪合并策略（auto/adhesion/ingot_crown/conservative/aggressive，默认auto）
+     */
+    @Pattern(regexp = "^(auto|adhesion|ingot_crown|conservative|aggressive)$", message = "追踪合并策略只能为：auto, adhesion, ingot_crown, conservative, aggressive")
+    private String trackingMergeStrategy;
 }
