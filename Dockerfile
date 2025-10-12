@@ -3,7 +3,7 @@
 # 阶段1：构建阶段
 FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 
-WORKDIR /app
+WORKDIR /app/backend
 
 # 复制pom.xml并下载依赖（利用Docker缓存层）
 COPY pom.xml .
@@ -23,7 +23,7 @@ FROM eclipse-temurin:21-jre
 LABEL maintainer="侯阳洋"
 LABEL description="VAR熔池视频分析系统 - 后端服务"
 
-WORKDIR /app
+WORKDIR /app/backend
 
 # 安装必要工具
 # JavaCV 已在 pom.xml 中配置为 javacv-platform，包含所有平台的 FFmpeg 预编译库
@@ -36,13 +36,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 # 从构建阶段复制jar文件
-COPY --from=builder /app/target/*.jar app.jar
+COPY --from=builder /app/backend/target/*.jar app.jar
 
 # 创建存储目录
-RUN mkdir -p /var/var-analysis/storage/videos \
-    /var/var-analysis/storage/results \
-    /var/var-analysis/storage/temp && \
-    chown -R appuser:appgroup /var/var-analysis
+RUN mkdir -p ../storage/videos \
+    ../storage/results \
+    ../storage/temp && \
+    chown -R appuser:appgroup /app
 
 # 切换到非root用户
 USER appuser
