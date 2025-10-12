@@ -82,4 +82,11 @@ public class TaskConfig extends BaseEntity {
     @Column(length = 20)
     @Builder.Default
     private String trackingMergeStrategy = "auto";
+
+    /**
+     * 视频帧率（由FFmpeg解析得到，用于时间戳计算和帧号转换）
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Double frameRate = 25.0;
 }

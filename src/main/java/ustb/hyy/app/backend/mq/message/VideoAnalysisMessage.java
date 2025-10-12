@@ -92,5 +92,10 @@ public class VideoAnalysisMessage implements Serializable {
          * 追踪合并策略
          */
         private String trackingMergeStrategy;
+
+        /**
+         * 视频帧率（由FFmpeg解析得到）
+         */
+        private Double frameRate;
     }
 }

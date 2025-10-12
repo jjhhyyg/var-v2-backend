@@ -112,5 +112,6 @@ public class TaskResponse {
         private Boolean preprocessingEnhancePool;
         private Boolean enableTrackingMerge;
         private String trackingMergeStrategy;
+        private Double frameRate;
     }
 }

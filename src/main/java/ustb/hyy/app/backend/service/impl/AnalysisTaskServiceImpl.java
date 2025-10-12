@@ -104,8 +104,15 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 2. 保存视频文件
         String videoPath = saveVideoFile(video);
 
-        // 3. 解析视频元数据（简化实现：假设30分钟，实际需要用FFmpeg解析）
-        int videoDuration = parseVideoDuration(videoPath);
+        // 3. 解析视频元数据（使用FFmpeg获取时长和帧率）
+        // 将相对路径转换为绝对路径用于FFmpeg
+        String absoluteVideoPath = toAbsolutePath(videoPath);
+        VideoUtils.VideoInfo videoInfo = VideoUtils.getVideoInfo(absoluteVideoPath);
+        int videoDuration = videoInfo.getDuration();
+        double frameRate = videoInfo.getFrameRate();
+
+        log.info("视频元数据解析完成 - 时长: {} 秒, 帧率: {} fps, 分辨率: {}x{}", 
+                videoDuration, frameRate, videoInfo.getWidth(), videoInfo.getHeight());
 
         // 4. 计算超时阈值
         String timeoutRatio = Optional.ofNullable(request.getTimeoutRatio()).orElse(defaultTimeoutRatio);
@@ -126,6 +133,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         TaskConfig config = TaskConfig.builder()
                 .task(task)
                 .timeoutRatio(timeoutRatio)
+                .frameRate(frameRate)
                 .enablePreprocessing(Optional.ofNullable(request.getEnablePreprocessing()).orElse(false))
                 .preprocessingStrength(Optional.ofNullable(request.getPreprocessingStrength()).orElse("moderate"))
                 .preprocessingEnhancePool(Optional.ofNullable(request.getPreprocessingEnhancePool()).orElse(true))
@@ -162,6 +170,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .config(VideoAnalysisMessage.TaskConfigData.builder()
                         .timeoutRatio(config.getTimeoutRatio())
                         .modelVersion(config.getModelVersion())
+                        .frameRate(config.getFrameRate())
                         .enablePreprocessing(config.getEnablePreprocessing())
                         .preprocessingStrength(config.getPreprocessingStrength())
                         .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
@@ -232,6 +241,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .config(VideoAnalysisMessage.TaskConfigData.builder()
                         .timeoutRatio(config.getTimeoutRatio())
                         .modelVersion(config.getModelVersion())
+                        .frameRate(config.getFrameRate())
                         .enablePreprocessing(config.getEnablePreprocessing())
                         .preprocessingStrength(config.getPreprocessingStrength())
                         .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
@@ -831,6 +841,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             configData = TaskResponse.TaskConfigData.builder()
                     .timeoutRatio(config.getTimeoutRatio())
                     .modelVersion(config.getModelVersion())
+                    .frameRate(config.getFrameRate())
                     .enablePreprocessing(config.getEnablePreprocessing())
                     .preprocessingStrength(config.getPreprocessingStrength())
                     .preprocessingEnhancePool(config.getPreprocessingEnhancePool())
