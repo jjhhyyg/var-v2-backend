@@ -16,7 +16,9 @@ COPY src ./src
 RUN ./mvnw clean package -DskipTests -B
 
 # 阶段2：运行阶段
-FROM eclipse-temurin:21-jre-alpine
+# 使用 Debian 基础镜像，因为 JavaCV 的预编译库基于 glibc
+# Alpine 使用 musl libc，与 JavaCV 不兼容
+FROM eclipse-temurin:21-jre
 
 LABEL maintainer="侯阳洋"
 LABEL description="VAR熔池视频分析系统 - 后端服务"
@@ -24,10 +26,14 @@ LABEL description="VAR熔池视频分析系统 - 后端服务"
 WORKDIR /app
 
 # 安装必要工具
-RUN apk add --no-cache curl
+# JavaCV 已在 pom.xml 中配置为 javacv-platform，包含所有平台的 FFmpeg 预编译库
+# 使用 Debian 镜像确保与 JavaCV 的 glibc 依赖兼容
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# 创建非root用户
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# 创建非root用户（Debian 语法）
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 # 从构建阶段复制jar文件
 COPY --from=builder /app/target/*.jar app.jar
