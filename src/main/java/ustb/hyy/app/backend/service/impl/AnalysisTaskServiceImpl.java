@@ -757,13 +757,6 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         return codesDir.resolve(relativePath).toAbsolutePath().normalize().toString();
     }
 
-    private int parseVideoDuration(String videoPath) {
-        // videoPath 是相对于 codes/ 的路径,需要转换为绝对路径
-        String absolutePath = toAbsolutePath(videoPath);
-        log.info("解析视频时长: 相对路径={}, 绝对路径={}", videoPath, absolutePath);
-        return VideoUtils.parseVideoDuration(absolutePath);
-    }
-
     private int calculateTimeoutThreshold(int videoDuration, String timeoutRatio) {
         String[] parts = timeoutRatio.split(":");
         if (parts.length != 2) {
