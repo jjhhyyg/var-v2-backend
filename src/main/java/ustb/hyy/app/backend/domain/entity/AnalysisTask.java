@@ -47,6 +47,12 @@ public class AnalysisTask extends BaseEntity {
     private String name;
 
     /**
+     * 原始文件名（用户上传时的真实文件名）
+     */
+    @Column(length = 255)
+    private String originalFilename;
+
+    /**
      * 视频文件路径
      */
     @Column(nullable = false, length = 500)

@@ -1,12 +1,22 @@
 package ustb.hyy.app.backend.domain.entity;
 
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.Type;
-import ustb.hyy.app.backend.domain.enums.EventType;
-
 import java.util.Map;
+
+import org.hibernate.annotations.Type;
+
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import ustb.hyy.app.backend.domain.enums.EventType;
 
 /**
  * 异常事件实体
@@ -52,7 +62,7 @@ public class AnomalyEvent extends BaseEntity {
     private Integer endFrame;
 
     /**
-     * ByteTrack追踪物体ID（如果事件与追踪物体相关）
+     * BotSORT追踪物体ID（如果事件与追踪物体相关）
      */
     @Column
     private Integer objectId;

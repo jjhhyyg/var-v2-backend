@@ -2,6 +2,7 @@ package ustb.hyy.app.backend.util;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -10,7 +11,7 @@ import java.util.regex.Pattern;
  * 提供带时间戳的文件名生成和更新功能
  */
 public class FilenameUtils {
-    
+
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final Pattern TIMESTAMP_PATTERN = Pattern.compile("_(\\d{8}_\\d{6})$");
     
@@ -128,5 +129,21 @@ public class FilenameUtils {
     private static String getExtension(String filename) {
         int dotIndex = filename.lastIndexOf('.');
         return dotIndex > 0 ? filename.substring(dotIndex) : "";
+    }
+
+    /**
+     * 生成基于UUID和时间戳的文件名
+     *
+     * @param originalFilename 原始文件名（用于提取扩展名）
+     * @return UUID_timestamp.extension 格式的文件名
+     *
+     * 示例:
+     *   generateUuidFilename("video.mp4") -> "a1b2c3d4-e5f6-7890-abcd-ef1234567890_20240101_120000.mp4"
+     */
+    public static String generateUuidFilename(String originalFilename) {
+        String extension = getExtension(originalFilename);
+        String uuid = UUID.randomUUID().toString();
+        String timestamp = generateTimestamp();
+        return uuid + "_" + timestamp + extension;
     }
 }

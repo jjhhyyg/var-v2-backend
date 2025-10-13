@@ -34,6 +34,11 @@ public class TaskResponse {
     private String name;
 
     /**
+     * 原始文件名（用户上传时的真实文件名）
+     */
+    private String originalFilename;
+
+    /**
      * 视频时长（秒）
      */
     private Integer videoDuration;

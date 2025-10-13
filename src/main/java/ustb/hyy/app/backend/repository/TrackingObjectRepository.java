@@ -1,13 +1,14 @@
 package ustb.hyy.app.backend.repository;
 
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
 import ustb.hyy.app.backend.domain.entity.TrackingObject;
 import ustb.hyy.app.backend.domain.enums.ObjectCategory;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * 追踪物体Repository
@@ -39,7 +40,7 @@ public interface TrackingObjectRepository extends JpaRepository<TrackingObject, 
      * 根据任务ID和物体ID查询
      *
      * @param taskId   任务ID
-     * @param objectId ByteTrack物体ID
+     * @param objectId BotSORT物体ID
      * @return 追踪物体
      */
     Optional<TrackingObject> findByTaskIdAndObjectId(Long taskId, Integer objectId);

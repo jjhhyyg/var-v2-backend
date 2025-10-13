@@ -96,7 +96,7 @@ COMMENT ON TABLE analysis_tasks IS '分析任务表';
 COMMENT ON TABLE task_configs IS '任务配置表';
 COMMENT ON TABLE dynamic_metrics IS '动态参数表（时序数据）';
 COMMENT ON TABLE anomaly_events IS '异常事件表';
-COMMENT ON TABLE tracking_objects IS '追踪物体表（ByteTrack追踪结果）';
+COMMENT ON TABLE tracking_objects IS '追踪物体表（BoTSORT追踪结果）';
 
 -- 添加列注释
 COMMENT ON COLUMN analysis_tasks.status IS '任务状态：PENDING, PREPROCESSING, ANALYZING, COMPLETED, COMPLETED_TIMEOUT, FAILED';

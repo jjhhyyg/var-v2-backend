@@ -41,7 +41,7 @@ public class TrackingObject extends BaseEntity {
     private Long taskId;
 
     /**
-     * ByteTrack追踪物体ID
+     * BotSORT追踪物体ID
      */
     @Column(nullable = false)
     private Integer objectId;

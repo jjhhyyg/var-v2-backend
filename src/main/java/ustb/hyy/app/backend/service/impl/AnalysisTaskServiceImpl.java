@@ -102,7 +102,9 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         validateVideoFile(video);
 
         // 2. 保存视频文件
-        String videoPath = saveVideoFile(video);
+        SaveVideoResult saveResult = saveVideoFile(video);
+        String videoPath = saveResult.videoPath;
+        String originalFilename = saveResult.originalFilename;
 
         // 3. 解析视频元数据（使用FFmpeg获取时长和帧率）
         // 将相对路径转换为绝对路径用于FFmpeg
@@ -111,7 +113,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         int videoDuration = videoInfo.getDuration();
         double frameRate = videoInfo.getFrameRate();
 
-        log.info("视频元数据解析完成 - 时长: {} 秒, 帧率: {} fps, 分辨率: {}x{}", 
+        log.info("视频元数据解析完成 - 时长: {} 秒, 帧率: {} fps, 分辨率: {}x{}",
                 videoDuration, frameRate, videoInfo.getWidth(), videoInfo.getHeight());
 
         // 4. 计算超时阈值
@@ -120,7 +122,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
         // 5. 创建任务
         AnalysisTask task = AnalysisTask.builder()
-                .name(Optional.ofNullable(request.getName()).orElse(video.getOriginalFilename()))
+                .name(Optional.ofNullable(request.getName()).orElse(originalFilename))
+                .originalFilename(originalFilename)
                 .videoPath(videoPath)
                 .videoDuration(videoDuration)
                 .status(TaskStatus.PENDING)
@@ -702,21 +705,37 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         return Arrays.asList("mp4", "avi", "mov", "mkv").contains(extension);
     }
 
-    private String saveVideoFile(MultipartFile video) {
+    /**
+     * 保存视频文件结果
+     */
+    private static class SaveVideoResult {
+        String videoPath;
+        String originalFilename;
+
+        SaveVideoResult(String videoPath, String originalFilename) {
+            this.videoPath = videoPath;
+            this.originalFilename = originalFilename;
+        }
+    }
+
+    private SaveVideoResult saveVideoFile(MultipartFile video) {
         try {
             String videoStoragePath = getVideoStoragePath();
-            
+
             Path storagePath = Paths.get(videoStoragePath);
             if (!Files.exists(storagePath)) {
                 Files.createDirectories(storagePath);
             }
 
-            // 使用时间戳命名文件：如果文件名没有时间戳则添加，如果有则更新
+            // 获取原始文件名
             String originalFilename = video.getOriginalFilename();
-            String filename = ustb.hyy.app.backend.util.FilenameUtils.addOrUpdateTimestamp(
-                originalFilename, true  // updateExisting=true 表示如果已有时间戳则更新
-            );
-            
+            if (originalFilename == null || originalFilename.isEmpty()) {
+                originalFilename = "unknown.mp4";
+            }
+
+            // 使用UUID_timestamp格式命名文件
+            String filename = ustb.hyy.app.backend.util.FilenameUtils.generateUuidFilename(originalFilename);
+
             Path filePath = storagePath.resolve(filename);
             Files.copy(video.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -725,11 +744,11 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             Path absolutePath = filePath.toAbsolutePath().normalize();
             Path codesDir = getCodesDirectory();
             Path relativePath = codesDir.relativize(absolutePath);
-            
+
             String relativePathStr = relativePath.toString().replace("\\", "/");
-            log.info("保存视频成功, 原始文件名: {}, 保存文件名: {}, 绝对路径: {}, 相对路径: {}", 
+            log.info("保存视频成功, 原始文件名: {}, 保存文件名: {}, 绝对路径: {}, 相对路径: {}",
                 originalFilename, filename, absolutePath, relativePathStr);
-            return relativePathStr;
+            return new SaveVideoResult(relativePathStr, originalFilename);
         } catch (IOException e) {
             log.error("视频文件保存失败", e);
             throw new BusinessException("视频文件保存失败", e);
@@ -846,6 +865,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         return TaskResponse.builder()
                 .taskId(String.valueOf(task.getId()))
                 .name(task.getName())
+                .originalFilename(task.getOriginalFilename())
                 .videoDuration(task.getVideoDuration())
                 .resultVideoPath(task.getResultVideoPath())
                 .preprocessedVideoPath(task.getPreprocessedVideoPath())
