@@ -1,5 +1,13 @@
 package ustb.hyy.app.backend.common.util;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
 
@@ -126,6 +134,120 @@ public class VideoUtils {
 
         public void setFormat(String format) {
             this.format = format;
+        }
+    }
+
+    /**
+     * 将视频转码为H264编码格式
+     *
+     * @param inputPath 输入视频路径
+     * @param outputPath 输出视频路径
+     * @return 转码后的视频路径
+     */
+    public static String transcodeToH264(String inputPath, String outputPath) {
+        try {
+            // 检查输入文件是否存在
+            File inputFile = new File(inputPath);
+            if (!inputFile.exists()) {
+                throw new BusinessException("输入视频文件不存在: " + inputPath);
+            }
+
+            // 创建输出目录
+            File outputFile = new File(outputPath);
+            File outputDir = outputFile.getParentFile();
+            if (outputDir != null && !outputDir.exists()) {
+                outputDir.mkdirs();
+            }
+
+            // 先检查视频是否已经是H264编码
+            if (isH264Encoded(inputPath)) {
+                log.info("视频已经是H264编码，直接复制文件: {}", inputPath);
+                Files.copy(Paths.get(inputPath), Paths.get(outputPath), StandardCopyOption.REPLACE_EXISTING);
+                return outputPath;
+            }
+
+            log.info("开始H264转码: {} -> {}", inputPath, outputPath);
+
+            // 构建FFmpeg命令
+            // -i: 输入文件
+            // -c:v libx264: 使用H264编码器
+            // -preset fast: 编码速度预设
+            // -crf 23: 质量参数 (18-28, 越小质量越好)
+            // -c:a aac: 音频使用AAC编码
+            // -b:a 128k: 音频比特率
+            // -y: 覆盖输出文件
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    "ffmpeg",
+                    "-i", inputPath,
+                    "-c:v", "libx264",
+                    "-preset", "fast",
+                    "-crf", "23",
+                    "-c:a", "aac",
+                    "-b:a", "128k",
+                    "-y",
+                    outputPath
+            );
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            // 读取FFmpeg输出
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.debug("FFmpeg: {}", line);
+                }
+            }
+
+            // 等待转码完成
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                throw new BusinessException("视频转码失败，FFmpeg退出码: " + exitCode);
+            }
+
+            // 检查输出文件是否生成
+            if (!outputFile.exists() || outputFile.length() == 0) {
+                throw new BusinessException("转码后的视频文件未生成或为空");
+            }
+
+            log.info("H264转码完成: {}", outputPath);
+            return outputPath;
+
+        } catch (IOException | InterruptedException e) {
+            log.error("视频转码失败: {}", inputPath, e);
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new BusinessException("视频转码失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 检查视频是否已经是H264编码
+     *
+     * @param videoPath 视频文件路径
+     * @return true如果是H264编码
+     */
+    private static boolean isH264Encoded(String videoPath) {
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    "ffprobe",
+                    "-v", "error",
+                    "-select_streams", "v:0",
+                    "-show_entries", "stream=codec_name",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    videoPath
+            );
+
+            Process process = processBuilder.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String codecName = reader.readLine();
+                log.debug("视频编码格式: {}", codecName);
+                return "h264".equalsIgnoreCase(codecName);
+            }
+        } catch (IOException e) {
+            log.warn("检查视频编码格式失败，假定需要转码: {}", videoPath, e);
+            return false;
         }
     }
 }

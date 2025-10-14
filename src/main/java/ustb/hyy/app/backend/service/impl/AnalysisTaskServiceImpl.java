@@ -736,18 +736,41 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             // 使用UUID_timestamp格式命名文件
             String filename = ustb.hyy.app.backend.util.FilenameUtils.generateUuidFilename(originalFilename);
 
-            Path filePath = storagePath.resolve(filename);
-            Files.copy(video.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            // 先保存为临时文件
+            String tempFilename = "temp_" + filename;
+            Path tempFilePath = storagePath.resolve(tempFilename);
+            Files.copy(video.getInputStream(), tempFilePath, StandardCopyOption.REPLACE_EXISTING);
+
+            log.info("临时保存视频成功: {}", tempFilePath);
+
+            // 确保最终文件名是.mp4格式（H264转码后统一使用mp4容器）
+            String finalFilename = filename;
+            if (!finalFilename.toLowerCase().endsWith(".mp4")) {
+                finalFilename = filename.substring(0, filename.lastIndexOf('.')) + ".mp4";
+            }
+            Path finalFilePath = storagePath.resolve(finalFilename);
+
+            // 进行H264转码
+            log.info("开始H264转码: {} -> {}", tempFilePath, finalFilePath);
+            VideoUtils.transcodeToH264(tempFilePath.toString(), finalFilePath.toString());
+
+            // 删除临时文件
+            try {
+                Files.deleteIfExists(tempFilePath);
+                log.info("已删除临时文件: {}", tempFilePath);
+            } catch (IOException e) {
+                log.warn("删除临时文件失败: {}", tempFilePath, e);
+            }
 
             // 返回规范化的相对路径 (相对于 codes/ 目录)
             // 从绝对路径中提取相对路径
-            Path absolutePath = filePath.toAbsolutePath().normalize();
+            Path absolutePath = finalFilePath.toAbsolutePath().normalize();
             Path codesDir = getCodesDirectory();
             Path relativePath = codesDir.relativize(absolutePath);
 
             String relativePathStr = relativePath.toString().replace("\\", "/");
-            log.info("保存视频成功, 原始文件名: {}, 保存文件名: {}, 绝对路径: {}, 相对路径: {}",
-                originalFilename, filename, absolutePath, relativePathStr);
+            log.info("视频保存并转码成功, 原始文件名: {}, 最终文件名: {}, 绝对路径: {}, 相对路径: {}",
+                originalFilename, finalFilename, absolutePath, relativePathStr);
             return new SaveVideoResult(relativePathStr, originalFilename);
         } catch (IOException e) {
             log.error("视频文件保存失败", e);
