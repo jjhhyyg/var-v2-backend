@@ -1,14 +1,14 @@
 package ustb.hyy.app.backend.config;
 
+import java.util.Arrays;
+import java.util.Collections;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
-
-import java.util.Arrays;
-import java.util.Collections;
 
 /**
  * CORS跨域配置
@@ -35,8 +35,12 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // 允许的源
-        config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        // 允许的源（支持通配符模式）
+        if ("*".equals(allowedOrigins.trim())) {
+            config.addAllowedOriginPattern("*");
+        } else {
+            config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        }
 
         // 允许的HTTP方法
         config.setAllowedMethods(Arrays.asList(allowedMethods.split(",")));
