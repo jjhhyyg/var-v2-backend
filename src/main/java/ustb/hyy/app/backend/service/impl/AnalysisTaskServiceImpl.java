@@ -101,26 +101,23 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         // 1. 校验视频文件
         validateVideoFile(video);
 
-        // 2. 保存视频文件
-        SaveVideoResult saveResult = saveVideoFile(video);
-        String videoPath = saveResult.videoPath;
-        String originalFilename = saveResult.originalFilename;
+        // 2. 处理视频文件（包括解析元数据、检查编码、可能的重新编码和保存）
+        ProcessVideoResult processResult = processAndSaveVideo(video);
+        String videoPath = processResult.videoPath;
+        String originalFilename = processResult.originalFilename;
+        VideoUtils.VideoInfo videoInfo = processResult.videoInfo;
 
-        // 3. 解析视频元数据（使用FFmpeg获取时长和帧率）
-        // 将相对路径转换为绝对路径用于FFmpeg
-        String absoluteVideoPath = toAbsolutePath(videoPath);
-        VideoUtils.VideoInfo videoInfo = VideoUtils.getVideoInfo(absoluteVideoPath);
         int videoDuration = videoInfo.getDuration();
         double frameRate = videoInfo.getFrameRate();
 
-        log.info("视频元数据解析完成 - 时长: {} 秒, 帧率: {} fps, 分辨率: {}x{}",
-                videoDuration, frameRate, videoInfo.getWidth(), videoInfo.getHeight());
+        log.info("视频处理完成 - 时长: {} 秒, 帧率: {} fps, 分辨率: {}x{}, 编码: {}",
+                videoDuration, frameRate, videoInfo.getWidth(), videoInfo.getHeight(), videoInfo.getCodec());
 
-        // 4. 计算超时阈值
+        // 3. 计算超时阈值
         String timeoutRatio = Optional.ofNullable(request.getTimeoutRatio()).orElse(defaultTimeoutRatio);
         int timeoutThreshold = calculateTimeoutThreshold(videoDuration, timeoutRatio);
 
-        // 5. 创建任务
+        // 4. 创建任务
         AnalysisTask task = AnalysisTask.builder()
                 .name(Optional.ofNullable(request.getName()).orElse(originalFilename))
                 .originalFilename(originalFilename)
@@ -132,7 +129,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .build();
         task = taskRepository.save(task);
 
-        // 6. 创建任务配置
+        // 5. 创建任务配置
         TaskConfig config = TaskConfig.builder()
                 .task(task)
                 .timeoutRatio(timeoutRatio)
@@ -145,7 +142,7 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .build();
         configRepository.save(config);
 
-        // 7. 返回响应（不再自动发送到消息队列，需要手动开始分析）
+        // 6. 返回响应（不再自动发送到消息队列，需要手动开始分析）
         return buildTaskResponse(task, config);
     }
 
@@ -715,6 +712,142 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         SaveVideoResult(String videoPath, String originalFilename) {
             this.videoPath = videoPath;
             this.originalFilename = originalFilename;
+        }
+    }
+
+    /**
+     * 处理视频文件结果（包含视频信息）
+     */
+    private static class ProcessVideoResult {
+        String videoPath;
+        String originalFilename;
+        VideoUtils.VideoInfo videoInfo;
+
+        ProcessVideoResult(String videoPath, String originalFilename, VideoUtils.VideoInfo videoInfo) {
+            this.videoPath = videoPath;
+            this.originalFilename = originalFilename;
+            this.videoInfo = videoInfo;
+        }
+    }
+
+    /**
+     * 处理并保存视频文件（包括解析元数据、检查编码、可能的重新编码）
+     */
+    private ProcessVideoResult processAndSaveVideo(MultipartFile video) {
+        Path tempFile = null;
+        Path reencodedFile = null;
+
+        try {
+            // 获取原始文件名
+            String originalFilename = video.getOriginalFilename();
+            if (originalFilename == null || originalFilename.isEmpty()) {
+                originalFilename = "unknown.mp4";
+            }
+
+            // 1. 将上传的视频保存到临时文件
+            String videoStoragePath = getVideoStoragePath();
+            Path storagePath = Paths.get(videoStoragePath);
+            if (!Files.exists(storagePath)) {
+                Files.createDirectories(storagePath);
+            }
+
+            // 使用临时文件名
+            String tempFilename = "temp_" + System.currentTimeMillis() + "_" + originalFilename;
+            tempFile = storagePath.resolve(tempFilename);
+            Files.copy(video.getInputStream(), tempFile, StandardCopyOption.REPLACE_EXISTING);
+
+            log.info("临时保存视频文件: {}", tempFile);
+
+            // 2. 解析视频元数据
+            String absoluteTempPath = tempFile.toAbsolutePath().toString();
+            VideoUtils.VideoInfo videoInfo = VideoUtils.getVideoInfo(absoluteTempPath);
+
+            log.info("视频元数据解析完成 - 编码: {}, 时长: {} 秒, 帧率: {} fps, 分辨率: {}x{}",
+                    videoInfo.getCodec(), videoInfo.getDuration(), videoInfo.getFrameRate(),
+                    videoInfo.getWidth(), videoInfo.getHeight());
+
+            // 3. 检查是否需要重新编码
+            String finalFilename;
+            Path finalFile;
+
+            if (VideoUtils.needsReencoding(videoInfo.getCodec())) {
+                log.info("视频编码格式为 {}，需要重新编码为H264", videoInfo.getCodec());
+
+                // 生成重新编码后的文件名（强制使用.mp4扩展名）
+                String baseFilename = ustb.hyy.app.backend.util.FilenameUtils.generateUuidFilename(originalFilename);
+                // 确保文件扩展名为.mp4
+                if (!baseFilename.toLowerCase().endsWith(".mp4")) {
+                    int lastDotIndex = baseFilename.lastIndexOf('.');
+                    if (lastDotIndex > 0) {
+                        baseFilename = baseFilename.substring(0, lastDotIndex) + ".mp4";
+                    } else {
+                        baseFilename = baseFilename + ".mp4";
+                    }
+                }
+                finalFilename = baseFilename;
+
+                reencodedFile = storagePath.resolve(finalFilename);
+                String absoluteReencodedPath = reencodedFile.toAbsolutePath().toString();
+
+                // 执行重新编码
+                VideoUtils.reencodeToH264(absoluteTempPath, absoluteReencodedPath);
+
+                // 删除临时文件
+                Files.deleteIfExists(tempFile);
+                tempFile = null;
+
+                finalFile = reencodedFile;
+
+                // 重新获取视频信息（编码后的视频信息）
+                videoInfo = VideoUtils.getVideoInfo(absoluteReencodedPath);
+
+                log.info("视频重新编码完成，新编码: {}", videoInfo.getCodec());
+            } else {
+                log.info("视频编码格式为 {}，无需重新编码", videoInfo.getCodec());
+
+                // 不需要重新编码，直接使用临时文件，但重命名为正式文件名
+                finalFilename = ustb.hyy.app.backend.util.FilenameUtils.generateUuidFilename(originalFilename);
+                finalFile = storagePath.resolve(finalFilename);
+
+                // 重命名临时文件为正式文件名
+                Files.move(tempFile, finalFile, StandardCopyOption.REPLACE_EXISTING);
+                tempFile = null;
+            }
+
+            // 3.5 应用 faststart 优化（使视频支持浏览器流式播放）
+            String absoluteFinalPath = finalFile.toAbsolutePath().toString();
+            try {
+                VideoUtils.applyFaststart(absoluteFinalPath);
+                log.info("faststart 优化已应用到原始视频");
+            } catch (Exception e) {
+                // faststart 失败不应阻止视频上传流程，仅记录警告
+                log.warn("faststart 优化失败，视频可能无法在浏览器中快速加载: {}", e.getMessage());
+            }
+
+            // 4. 返回相对路径
+            Path absolutePath = finalFile.toAbsolutePath().normalize();
+            Path codesDir = getCodesDirectory();
+            Path relativePath = codesDir.relativize(absolutePath);
+            String relativePathStr = relativePath.toString().replace("\\", "/");
+
+            log.info("视频处理完成，原始文件名: {}, 保存文件名: {}, 相对路径: {}",
+                    originalFilename, finalFilename, relativePathStr);
+
+            return new ProcessVideoResult(relativePathStr, originalFilename, videoInfo);
+
+        } catch (IOException e) {
+            log.error("视频文件处理失败", e);
+            throw new BusinessException("视频文件处理失败", e);
+        } finally {
+            // 清理可能残留的临时文件
+            try {
+                if (tempFile != null && Files.exists(tempFile)) {
+                    Files.deleteIfExists(tempFile);
+                    log.debug("已清理临时文件: {}", tempFile);
+                }
+            } catch (IOException e) {
+                log.warn("清理临时文件失败: {}", tempFile, e);
+            }
         }
     }
 
