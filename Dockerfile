@@ -26,7 +26,8 @@ LABEL description="VAR熔池视频分析系统 - 后端服务"
 WORKDIR /app/backend
 
 # 安装必要工具
-# JavaCV 已在 pom.xml 中配置为 javacv-platform，包含所有平台的 FFmpeg 预编译库
+# JavaCV 已在 pom.xml 中配置为 javacv-platform，包含所有平台的 FFmpeg 预编译库（用于视频编码）
+# 另外安装 ffmpeg 命令行工具（用于 faststart 优化，使视频支持浏览器流式播放）
 # 使用 Debian 镜像确保与 JavaCV 的 glibc 依赖兼容
 # 额外安装 ffmpeg 和 ffprobe CLI 工具用于视频转码
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -1,5 +1,6 @@
 package ustb.hyy.app.backend.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -17,6 +18,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
+
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
         // 启用简单的消息代理，用于向客户端推送消息
@@ -32,7 +36,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // 注册WebSocket端点，客户端通过此端点连接
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*") // 允许跨域，生产环境应该设置具体域名
+                .setAllowedOriginPatterns(allowedOrigins.split(",")) // 从配置文件读取允许的源，支持通配符
                 .withSockJS(); // 启用SockJS支持，用于浏览器不支持WebSocket时的降级方案
     }
 }
