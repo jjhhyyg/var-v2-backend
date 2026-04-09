@@ -2,233 +2,153 @@
 
 简体中文 | [English](README.md)
 
-> 基于 Spring Boot 的 VAR 熔池视频分析系统后端服务
+> 负责任务管理、持久化、MQ 投递、WebSocket 推送和视频流服务的 Spring Boot 后端。
+
+## 模块职责
+
+后端是整个系统的调度中心，负责：
+
+- 接收视频上传并创建分析任务
+- 保存任务元数据和视频路径
+- 向 RabbitMQ 投递分析消息
+- 接收 AI 模块的进度和结果回调
+- 将实时任务状态缓存到 Redis
+- 通过 WebSocket 向前端推送状态和详情更新
+- 提供原视频、预处理视频、结果视频的流式访问
 
 ## 技术栈
 
-- **框架**: Spring Boot 3.5.6
-- **语言**: Java 21
-- **数据库**: PostgreSQL + Flyway（数据库迁移）
-- **缓存**: Redis
-- **消息队列**: RabbitMQ
-- **API 文档**: SpringDoc OpenAPI (Swagger)
-- **视频处理**: JavaCV
-- **实时通信**: WebSocket
+- Java 21
+- Spring Boot 3.5.6
+- Maven Wrapper
+- PostgreSQL + Flyway
+- Redis
+- RabbitMQ
+- Spring WebSocket
+- SpringDoc OpenAPI
 
-## 核心功能
+## 当前真实配置口径
 
-- RESTful API 视频分析任务管理
-- 基于 RabbitMQ 的异步任务处理
-- 通过 WebSocket 实时推送进度更新
-- 视频文件上传与存储管理
-- Flyway 数据库版本控制
-- Redis 缓存提升性能
-- Swagger UI 交互式 API 文档
+不要再沿用旧 README 里的过时环境变量名。当前后端从 `backend/.env` 读取配置，核心变量包括：
 
-## 环境要求
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `REDIS_HOST`
+- `REDIS_PORT`
+- `REDIS_PASSWORD`
+- `REDIS_DB`
+- `RABBITMQ_HOST`
+- `RABBITMQ_PORT`
+- `RABBITMQ_USER`
+- `RABBITMQ_PASSWORD`
+- `RABBITMQ_VHOST`
+- `BACKEND_BASE_URL`
+- `SERVER_PORT`
+- `CORS_ORIGINS`
+- `STORAGE_*`
 
-- Java 21+
-- PostgreSQL 13+
-- Redis 6+
-- RabbitMQ 3.9+
-- Maven 3.8+（或使用内置的 Maven Wrapper）
-
-## 快速开始
-
-### 1. 配置环境变量
-
-在 backend 目录下创建 `.env` 文件（或使用父项目的环境配置）：
-
-```bash
-# 数据库
-DATABASE_URL=jdbc:postgresql://localhost:5432/var_analysis
-DATABASE_USERNAME=postgres
-DATABASE_PASSWORD=your_password
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# RabbitMQ
-RABBITMQ_HOST=localhost
-RABBITMQ_PORT=5672
-RABBITMQ_USERNAME=guest
-RABBITMQ_PASSWORD=guest
-
-# AI 处理模块
-AI_PROCESSOR_URL=http://localhost:5000
-
-# 存储
-UPLOAD_DIR=/path/to/upload/directory
-```
-
-### 2. 启动基础设施服务
-
-如果使用 Docker：
+应从主仓库根目录生成 `backend/.env`：
 
 ```bash
-# 从项目根目录执行
-docker-compose -f docker-compose.dev.yml up -d
+./scripts/use-env.sh dev
 ```
 
-### 3. 运行应用
+## 本地开发
 
-使用 Maven Wrapper（推荐）：
+### 推荐方式
+
+开发阶段建议用 Docker 启中间件，后端本地直跑：
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+然后进入 `backend` 目录启动：
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-使用系统 Maven：
+默认本地地址：
+
+- `http://localhost:8080`
+
+### IntelliJ IDEA
+
+本地调试推荐直接使用 IntelliJ IDEA：
+
+1. 打开 `backend` 目录
+2. 配置 JDK 21
+3. 等待 IDEA 导入 Maven 项目
+4. 确认 `backend/.env` 已由主仓库脚本生成
+5. 运行 `BackendApplication`
+6. 观察 Flyway、Redis、RabbitMQ、WebSocket 的启动日志
+
+适合用 IDEA 的场景：
+
+- 需要打断点
+- 需要查看启动阶段问题
+- 需要观察数据库迁移、MQ、WebSocket 日志
+
+如果只是快速跑起来，命令行方式也可以：
 
 ```bash
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 
-应用将在 http://localhost:8080 启动
+## 健康检查与文档
 
-### 4. 访问 API 文档
+- 健康检查：`http://localhost:8080/actuator/health`
+- Swagger：`http://localhost:8080/swagger-ui.html`
 
-访问 http://localhost:8080/swagger-ui.html 查看交互式 API 文档。
+## 关键接口区域
 
-## 开发指南
+主要入口：
 
-### 项目结构
+- 任务管理：`/api/tasks/*`
+- AI 回调：`/api/tasks/{taskId}/progress`、`/result`、`/result-video`、`/preprocessed-video`、`/model-version`
+- 视频流：`/api/videos/{taskId}/{type}`
+- WebSocket 入口：`/ws`
 
-```
-backend/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── ustb/hyy/app/backend/
-│   │   │       ├── config/          # 配置类
-│   │   │       ├── controller/      # REST 控制器
-│   │   │       ├── service/         # 业务逻辑
-│   │   │       ├── repository/      # 数据访问层
-│   │   │       ├── model/           # 实体模型
-│   │   │       ├── dto/             # 数据传输对象
-│   │   │       └── exception/       # 异常处理
-│   │   └── resources/
-│   │       ├── application.properties
-│   │       └── db/migration/        # Flyway 迁移脚本
-│   └── test/                        # 单元测试和集成测试
-├── pom.xml
-└── mvnw                             # Maven Wrapper
-```
+关键订阅主题：
 
-### 数据库迁移
+- `/topic/tasks/{taskId}/status`
+- `/topic/tasks/{taskId}/update`
+- `/topic/tasks/updates`
 
-本项目使用 Flyway 进行数据库版本控制。迁移脚本位于 `src/main/resources/db/migration/`。
+## 测试
 
-创建新的迁移脚本：
-
-```bash
-# 创建遵循命名规范的 SQL 文件：
-# V{版本号}__{描述}.sql
-# 例如：V2__add_user_table.sql
-```
-
-### 运行测试
+执行后端自动化测试：
 
 ```bash
 ./mvnw test
 ```
 
-### 生产环境构建
+但要清醒一点：现有自动化测试覆盖有限，不能替代本地联调测试。
+
+## 构建与 Docker
+
+### 本地构建 JAR
 
 ```bash
-./mvnw clean package
+./mvnw clean package -DskipTests
 ```
 
-JAR 文件将生成在 `target/` 目录下。
+### Docker 说明
 
-## API 接口
+- `Dockerfile`：默认生产 Dockerfile，要求 `target/` 中已有构建好的 JAR
+- `Dockerfile.build`：在 Docker 内完成构建
 
-### 任务管理
+如果你使用主仓库里的默认生产部署方式，通常需要先本地构建 JAR。
 
-- `POST /api/tasks` - 创建新的分析任务
-- `GET /api/tasks` - 获取所有任务列表
-- `GET /api/tasks/{id}` - 获取任务详情
-- `DELETE /api/tasks/{id}` - 删除任务
+更多细节见 [`DOCKER.md`](DOCKER.md)。
 
-### 文件管理
+## 下一步阅读
 
-- `POST /api/files/upload` - 上传视频文件
-- `GET /api/files/{filename}` - 下载文件
-
-### WebSocket
-
-- `/ws/progress` - 实时任务进度更新
-
-详细的 API 文档请访问 Swagger UI：`/swagger-ui.html`
-
-## 配置说明
-
-`application.properties` 中的主要配置项：
-
-```properties
-# 服务器
-server.port=8080
-
-# 数据库
-spring.datasource.url=${DATABASE_URL}
-spring.datasource.username=${DATABASE_USERNAME}
-spring.datasource.password=${DATABASE_PASSWORD}
-
-# JPA
-spring.jpa.hibernate.ddl-auto=validate
-spring.jpa.show-sql=false
-
-# Flyway
-spring.flyway.enabled=true
-
-# 文件上传
-spring.servlet.multipart.max-file-size=2GB
-spring.servlet.multipart.max-request-size=2GB
-```
-
-## Docker 部署
-
-构建 Docker 镜像：
-
-```bash
-docker build -t var-backend:latest .
-```
-
-使用 Docker 运行：
-
-```bash
-docker run -p 8080:8080 \
-  -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/var_analysis \
-  -e DATABASE_USERNAME=postgres \
-  -e DATABASE_PASSWORD=password \
-  var-backend:latest
-```
-
-## 故障排查
-
-### 数据库连接问题
-
-检查 PostgreSQL 是否运行且凭据正确：
-
-```bash
-psql -h localhost -U postgres -d var_analysis
-```
-
-### RabbitMQ 连接问题
-
-验证 RabbitMQ 是否运行：
-
-```bash
-# 检查 RabbitMQ 状态
-docker ps | grep rabbitmq
-
-# 访问 RabbitMQ 管理界面
-open http://localhost:15672
-```
-
-## 许可证
-
-本项目采用 GNU Affero General Public License v3.0 (AGPL-3.0) 许可证 - 详见 [LICENSE](LICENSE) 文件。
-
-**重要提示：** 任何通过网络使用的本软件修改版本必须向用户提供源代码。
+- 主仓库地址：
+  `https://github.com/jjhhyyg/VAR-melting-defect-detection-source-code.git`
+- 主仓库中的交接文档：
+  `docs/项目接手、开发测试与部署指南.md`

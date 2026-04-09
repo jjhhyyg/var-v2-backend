@@ -2,233 +2,143 @@
 
 [简体中文](README.zh.md) | English
 
-> Spring Boot backend service for VAR molten pool video analysis system
+> Spring Boot backend service for task management, persistence, MQ dispatch, WebSocket updates, and video streaming.
+
+## Responsibilities
+
+The backend is the orchestration center of the system. It is responsible for:
+
+- receiving uploaded videos and creating tasks
+- saving task metadata and file paths
+- sending analysis messages to RabbitMQ
+- receiving AI callbacks for progress and final results
+- caching real-time task status in Redis
+- pushing task updates to the frontend over WebSocket
+- serving original, preprocessed, and result videos
 
 ## Tech Stack
 
-- **Framework**: Spring Boot 3.5.6
-- **Language**: Java 21
-- **Database**: PostgreSQL + Flyway (migrations)
-- **Cache**: Redis
-- **Message Queue**: RabbitMQ
-- **API Documentation**: SpringDoc OpenAPI (Swagger)
-- **Video Processing**: JavaCV
-- **Real-time Communication**: WebSocket
+- Java 21
+- Spring Boot 3.5.6
+- Maven Wrapper
+- PostgreSQL + Flyway
+- Redis
+- RabbitMQ
+- Spring WebSocket
+- SpringDoc OpenAPI
 
-## Features
+## Configuration Source of Truth
 
-- RESTful API for video analysis task management
-- Asynchronous task processing with RabbitMQ
-- Real-time progress updates via WebSocket
-- Video file upload and storage management
-- Database schema versioning with Flyway
-- Redis caching for improved performance
-- Interactive API documentation with Swagger UI
+Do not follow outdated environment variable names from old documents. The current backend reads configuration from `backend/.env` and uses these variables:
 
-## Prerequisites
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `REDIS_HOST`
+- `REDIS_PORT`
+- `REDIS_PASSWORD`
+- `REDIS_DB`
+- `RABBITMQ_HOST`
+- `RABBITMQ_PORT`
+- `RABBITMQ_USER`
+- `RABBITMQ_PASSWORD`
+- `RABBITMQ_VHOST`
+- `BACKEND_BASE_URL`
+- `SERVER_PORT`
+- `CORS_ORIGINS`
+- `STORAGE_*`
 
-- Java 21+
-- PostgreSQL 13+
-- Redis 6+
-- RabbitMQ 3.9+
-- Maven 3.8+ (or use included Maven Wrapper)
-
-## Quick Start
-
-### 1. Configure Environment Variables
-
-Create a `.env` file in the backend directory (or use the parent project's environment configuration):
-
-```bash
-# Database
-DATABASE_URL=jdbc:postgresql://localhost:5432/var_analysis
-DATABASE_USERNAME=postgres
-DATABASE_PASSWORD=your_password
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# RabbitMQ
-RABBITMQ_HOST=localhost
-RABBITMQ_PORT=5672
-RABBITMQ_USERNAME=guest
-RABBITMQ_PASSWORD=guest
-
-# AI Processor
-AI_PROCESSOR_URL=http://localhost:5000
-
-# Storage
-UPLOAD_DIR=/path/to/upload/directory
-```
-
-### 2. Start Infrastructure Services
-
-If using Docker:
+Generate `backend/.env` from the main repository root:
 
 ```bash
-# From the project root
-docker-compose -f docker-compose.dev.yml up -d
+./scripts/use-env.sh dev
 ```
 
-### 3. Run the Application
+## Local Development
 
-Using Maven Wrapper (recommended):
+### Recommended workflow
+
+In local development, infrastructure should run in Docker while the backend runs locally:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Then run the backend from the `backend` directory:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Using system Maven:
+Default local URL:
 
-```bash
-mvn spring-boot:run
-```
+- `http://localhost:8080`
 
-The application will start at http://localhost:8080
+### IntelliJ IDEA
 
-### 4. Access API Documentation
+Recommended for local debugging:
 
-Visit http://localhost:8080/swagger-ui.html to explore the interactive API documentation.
+1. Open the `backend` directory in IntelliJ IDEA
+2. Configure JDK 21
+3. Let IDEA import the Maven project
+4. Make sure `backend/.env` already exists
+5. Run `BackendApplication`
+6. Watch the startup logs for Flyway, Redis, RabbitMQ, and WebSocket initialization
 
-## Development
+Use IDEA when you need breakpoints, startup diagnostics, or request tracing. Use `./mvnw spring-boot:run` when you only need a quick local run.
 
-### Project Structure
+## Health Check and API Docs
 
-```
-backend/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── ustb/hyy/app/backend/
-│   │   │       ├── config/          # Configuration classes
-│   │   │       ├── controller/      # REST controllers
-│   │   │       ├── service/         # Business logic
-│   │   │       ├── repository/      # Data access layer
-│   │   │       ├── model/           # Entity models
-│   │   │       ├── dto/             # Data transfer objects
-│   │   │       └── exception/       # Exception handling
-│   │   └── resources/
-│   │       ├── application.properties
-│   │       └── db/migration/        # Flyway migration scripts
-│   └── test/                        # Unit and integration tests
-├── pom.xml
-└── mvnw                             # Maven Wrapper
-```
+- Health: `http://localhost:8080/actuator/health`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-### Database Migrations
+## Important API Areas
 
-This project uses Flyway for database schema versioning. Migration scripts are located in `src/main/resources/db/migration/`.
+Key backend entry points:
 
-To create a new migration:
+- Task management: `/api/tasks/*`
+- AI callbacks: `/api/tasks/{taskId}/progress`, `/result`, `/result-video`, `/preprocessed-video`, `/model-version`
+- Video streaming: `/api/videos/{taskId}/{type}`
+- WebSocket endpoint: `/ws`
 
-```bash
-# Create a new SQL file following the naming convention:
-# V{version}__{description}.sql
-# Example: V2__add_user_table.sql
-```
+Important WebSocket topics:
 
-### Running Tests
+- `/topic/tasks/{taskId}/status`
+- `/topic/tasks/{taskId}/update`
+- `/topic/tasks/updates`
+
+## Tests
+
+Run backend tests with:
 
 ```bash
 ./mvnw test
 ```
 
-### Building for Production
+Be realistic: automated backend tests exist, but they are not sufficient to replace full local integration testing.
+
+## Build and Docker
+
+### Build a local JAR
 
 ```bash
-./mvnw clean package
+./mvnw clean package -DskipTests
 ```
 
-The JAR file will be created in the `target/` directory.
+### Docker behavior
 
-## API Endpoints
+- `Dockerfile`: default production Dockerfile, expects a prebuilt JAR in `target/`
+- `Dockerfile.build`: builds the JAR inside Docker
 
-### Task Management
+If you deploy from the main repository with the default backend Dockerfile, build the JAR first.
 
-- `POST /api/tasks` - Create a new analysis task
-- `GET /api/tasks` - List all tasks
-- `GET /api/tasks/{id}` - Get task details
-- `DELETE /api/tasks/{id}` - Delete a task
+For more details, see [`DOCKER.md`](DOCKER.md).
 
-### File Management
+## What to Read Next
 
-- `POST /api/files/upload` - Upload video file
-- `GET /api/files/{filename}` - Download file
-
-### WebSocket
-
-- `/ws/progress` - Real-time task progress updates
-
-For detailed API documentation, visit the Swagger UI at `/swagger-ui.html`.
-
-## Configuration
-
-Key configuration properties in `application.properties`:
-
-```properties
-# Server
-server.port=8080
-
-# Database
-spring.datasource.url=${DATABASE_URL}
-spring.datasource.username=${DATABASE_USERNAME}
-spring.datasource.password=${DATABASE_PASSWORD}
-
-# JPA
-spring.jpa.hibernate.ddl-auto=validate
-spring.jpa.show-sql=false
-
-# Flyway
-spring.flyway.enabled=true
-
-# File Upload
-spring.servlet.multipart.max-file-size=2GB
-spring.servlet.multipart.max-request-size=2GB
-```
-
-## Docker Deployment
-
-Build Docker image:
-
-```bash
-docker build -t var-backend:latest .
-```
-
-Run with Docker:
-
-```bash
-docker run -p 8080:8080 \
-  -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/var_analysis \
-  -e DATABASE_USERNAME=postgres \
-  -e DATABASE_PASSWORD=password \
-  var-backend:latest
-```
-
-## Troubleshooting
-
-### Database Connection Issues
-
-Check PostgreSQL is running and credentials are correct:
-
-```bash
-psql -h localhost -U postgres -d var_analysis
-```
-
-### RabbitMQ Connection Issues
-
-Verify RabbitMQ is running:
-
-```bash
-# Check RabbitMQ status
-docker ps | grep rabbitmq
-
-# Check RabbitMQ management UI
-open http://localhost:15672
-```
-
-## License
-
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
-
-**Important:** Any modified version of this software used over a network must make the source code available to users.
+- Main repository overview:
+  `https://github.com/jjhhyyg/VAR-melting-defect-detection-source-code.git`
+- Main handover guide in the root repository:
+  `docs/项目接手、开发测试与部署指南.md`
